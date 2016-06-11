@@ -5,6 +5,9 @@ namespace TurbulenceMod
 {
     public class TurbulenceMod : BaseScript
     {
+        private int _currentKillstreak = 0;
+        private Entity _currentJuggernaut;
+
         public TurbulenceMod()
         {
             Entity entity = Call<Entity>("getent", new Parameter[] { "care_package", "targetname" });
@@ -12,8 +15,6 @@ namespace TurbulenceMod
 
             PlayerConnected += new Action<Entity>(player =>
             {
-                player.Notify("menuresponse", "changeclass", "class0");
-
                 OnSpawned(player);
                 player.SpawnedPlayer += () => OnSpawned(player);
 
@@ -75,25 +76,20 @@ namespace TurbulenceMod
                     }
                 });
             });
-        }
 
-        public override void OnPlayerKilled(Entity player, Entity inflictor, Entity attacker, int damage, string mod, string weapon, Vector3 dir, string hitLoc)
-        {
-            if (attacker.GetField<string>("sessionteam") == "allies")
+            OnInterval(100, () =>
             {
-                if (attacker.IsAlive || mod != "MOD_MELEE")
+                foreach (var player in Players)
                 {
-                    var w = Weapon.GetRandomWeapon();
-                    attacker.TakeAllWeapons();
-                    attacker.GiveWeapon(w.Code);
-                    attacker.Call("givemaxammo", w.Code);
-                    AfterDelay(100, () =>
+                    if (GetTeam(player) == "allies" && player.IsAlive && _currentJuggernaut != player)
                     {
-                        attacker.SwitchToWeaponImmediate(w.Code);
-                        attacker.Call("iprintlnbold", w.Name);
-                    });
+                        _currentJuggernaut = player;
+                        _currentKillstreak = 0;
+                    }
                 }
-            }
+
+                return true;
+            });
         }
 
         public void OnSpawned(Entity player)
@@ -103,25 +99,32 @@ namespace TurbulenceMod
                 player.Call("clearPerks");
                 if (player.GetField<string>("sessionteam") == "allies")
                 {
-                    var w = Weapon.GetRandomWeapon();
-                    player.TakeAllWeapons();
-                    player.GiveWeapon(w.Code);
-                    player.Call("givemaxammo", w.Name);
-                    AfterDelay(100, () =>
-                    {
-                        player.SwitchToWeaponImmediate(w.Name);
-                        player.Call("iprintlnbold", w.Name);
-                    });
+                    NewWeapon(player);
                     SetAllPerk(player);
+                    OnInterval(100, () =>
+                    {
+                        player.Call("setmovespeedscale", 1.1f);
+                        return player == _currentJuggernaut;
+                    });
                 }
-                else
-                {
-                    player.TakeAllWeapons();
-                    player.GiveWeapon("iw5_usp45_mp_tactical");
-                    player.Call("setweaponammostock", new Parameter[] { "iw5_usp45_mp_tactical", 0 });
-                    player.Call("setweaponammoclip", new Parameter[] { "iw5_usp45_mp_tactical", 0 });
-                    AfterDelay(200, () => player.SwitchToWeaponImmediate("iw5_usp45_mp_tactical"));
-                }
+            });
+        }
+
+        private void NewWeapon(Entity player)
+        {
+            GamblerText(player, "New Weapon", new Vector3(1, 1, 1), new Vector3(1, 0.5f, 0), 1, 0.85f);
+
+            var _currentWeapon = Weapon.GetRandomWeapon();
+
+            player.TakeAllWeapons();
+
+            player.GiveWeapon(_currentWeapon.Code);
+            player.Call("giveMaxAmmo", _currentWeapon.Code);
+
+            player.AfterDelay(100, entity =>
+            {
+                entity.SwitchToWeaponImmediate(_currentWeapon.Code);
+                entity.Call("iprintlnbold", _currentWeapon.Name);
             });
         }
 
@@ -167,6 +170,109 @@ namespace TurbulenceMod
             player.SetPerk("specialty_fastermelee", true, false);
             player.SetPerk("specialty_lightweight", true, false);
             player.SetPerk("specialty_moredamage", true, false);
+        }
+
+        public static HudElem GamblerText(Entity player, string text, Vector3 color, Vector3 glowColor, float intensity, float glowIntensity)
+        {
+            var hud = HudElem.CreateFontString(player, "hudbig", 2);
+            hud.SetPoint("CENTERMIDDLE", "CENTERMIDDLE", 0, 0);
+            hud.SetText(text);
+            hud.Color = color;
+            hud.GlowColor = glowColor;
+            hud.Alpha = 0;
+            hud.GlowAlpha = glowIntensity;
+
+            hud.ChangeFontScaleOverTime(0.25f, 0.75f);
+            hud.Call("FadeOverTime", 0.25f);
+            hud.Alpha = intensity;
+
+            player.AfterDelay(250, ent => player.Call("playLocalSound", "mp_bonus_end"));
+
+            player.AfterDelay(3000, ent =>
+            {
+                if (hud != null)
+                {
+                    hud.ChangeFontScaleOverTime(0.25f, 2f);
+                    hud.Call("FadeOverTime", 0.25f);
+                    hud.Alpha = 0;
+                }
+            });
+
+            player.AfterDelay(4000, ent =>
+            {
+                if (hud != null)
+                {
+                    hud.Call("destroy");
+                }
+            });
+
+            return hud;
+        }
+
+        public static string GetTeam(Entity e)
+        {
+            return e.GetField<string>("sessionteam");
+        }
+
+        public override void OnPlayerKilled(Entity player, Entity inflictor, Entity attacker, int damage, string mod, string weapon, Vector3 dir, string hitLoc)
+        {
+            if (player == null || !player.IsPlayer)
+            {
+                return;
+            }
+            if (attacker == null || !attacker.IsPlayer)
+            {
+                return;
+            }
+            if (GetTeam(attacker) == GetTeam(player))
+            {
+                return;
+            }
+            if (GetTeam(attacker) == "allies")
+            {
+                if (attacker.IsAlive)
+                {
+                    _currentKillstreak++;
+                    if (_currentKillstreak == 5)
+                    {
+                        _currentKillstreak = 0;
+                        NewWeapon(attacker);
+                    }
+                }
+            }
+            else
+            {
+                _currentKillstreak = 0;
+            }
+        }
+
+        public override void OnPlayerDamage(Entity player, Entity inflictor, Entity attacker, int damage, int dFlags, string mod, string weapon, Vector3 point, Vector3 dir, string hitLoc)
+        {
+            if (player == null || !player.IsPlayer)
+            {
+                return;
+            }
+            if (attacker == null || !attacker.IsPlayer)
+            {
+                return;
+            }
+            if (GetTeam(attacker) == GetTeam(player))
+            {
+                return;
+            }
+            if (GetTeam(attacker) == "axis")
+            {
+                if (weapon.StartsWith("iw5_msr") || weapon.StartsWith("iw5_l96a1") || weapon.StartsWith("iw5_as50"))
+                {
+                    player.Health = 3;
+                    return;
+                }
+                if (mod == "MOD_MELEE")
+                {
+                    player.Health = 3;
+                    return;
+                }
+            }
         }
     }
 }

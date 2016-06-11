@@ -29,7 +29,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ExoMode", "ExoMode\ExoMode.
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SXXMFaker", "SXXMFaker\SXXMFaker.csproj", "{D554E674-4B6E-40D3-B95D-F1FE584D7F4A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ExoMode_Infect", "ExoMode_Infect\ExoMode_Infect.csproj", "{6F88E68A-256B-4427-8689-F09F6066E089}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "INF3", "INF3\INF3.csproj", "{6F88E68A-256B-4427-8689-F09F6066E089}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

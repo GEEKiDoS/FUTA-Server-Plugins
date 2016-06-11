@@ -19,7 +19,6 @@ namespace Sharpshooter
             hud.GlowColor = glowColor;
             hud.Alpha = 0;
             hud.GlowAlpha = glowIntensity;
-            player.SetField("hud_gamblertext", new Parameter(hud));
 
             hud.ChangeFontScaleOverTime(0.25f, 0.75f);
             hud.Call("FadeOverTime", 0.25f);

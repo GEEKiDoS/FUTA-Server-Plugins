@@ -10,52 +10,15 @@ namespace Exo
 {
     public static class Utility
     {
+        public static Entity Spawn(string spawntype, Vector3 origin)
+        {
+            Function.SetEntRef(-1);
+            return Function.Call<Entity>("spawn", spawntype, origin);
+        }
+
         public static string GetTeam(this Entity e)
         {
             return e.GetField<string>("sessionteam");
-        }
-
-        public static void SetRemoteUsing(this Entity self, bool used)
-        {
-            if (used)
-                self.Notify("using_remote");
-            else
-                self.Notify("stopped_using_remote");
-        }
-
-        public static List<Killstreak.KillStreaks> KillStreakList(this Entity self)
-        {
-            return self.GetField<List<Killstreak.KillStreaks>>("KillstreaksList");
-        }
-
-        public static List<Killstreak.IsUse> KillStreakIsUse(this Entity self)
-        {
-            return self.GetField<List<Killstreak.IsUse>>("KillStreakIsUse");
-        }
-
-        public static List<Entity> Players
-        {
-            get
-            {
-                var list = new List<Entity>();
-
-                for (int i = 0; i < 18; i++)
-                {
-                    var ent = Entity.GetEntity(i);
-                    if (ent != null && ent.IsPlayer)
-                    {
-                        list.Add(ent);
-                    }
-                }
-
-                return list;
-            }
-        }
-
-        public static Entity Script_Model(Vector3 origin)
-        {
-            Function.SetEntRef(-1);
-            return Function.Call<Entity>("spawn", "script_model", origin);
         }
 
         #region Sound

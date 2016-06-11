@@ -20,16 +20,6 @@ namespace Sharpshooter
         private Random _rng = new Random();
         private HudElem _cycleTimer;
         private int _cycleRemaining = 30;
-        private SharpshooterPerk[] _perkList;
-
-        #region SharpshooterPerk
-        private class SharpshooterPerk
-        {
-            public string perkName;
-            public string[] perks;
-            public bool isWeapon;
-        }
-        #endregion
 
         public Sharpshooter()
         {
@@ -40,77 +30,6 @@ namespace Sharpshooter
 
             _switchTime = Call<int>("getDvarInt", "shrp_switchTime", 45);
             _cycleRemaining = _switchTime;
-
-            _perkList = new[]
-            {
-                new SharpshooterPerk()
-                {
-                    perkName = "Sleight of Hand",
-                    perks = new[]
-                    {
-                        "specialty_fastreload",
-                        "specialty_quickswap"
-                    }
-                },
-                new SharpshooterPerk()
-                {
-                    perkName = "Quickdraw",
-                    perks = new[]
-                    {
-                        "specialty_quickdraw"
-                    }
-                },
-                new SharpshooterPerk()
-                {
-                    perkName = "Stalker",
-                    perks = new[]
-                    {
-                        "specialty_stalker"
-                    }
-                },
-                new SharpshooterPerk()
-                {
-                    perkName = "Marathon",
-                    perks = new[]
-                    {
-                        "specialty_longersprint",
-                        "specialty_fastmantle"
-                    }
-                },
-                new SharpshooterPerk()
-                {
-                    perkName = "Range",
-                    perks = new[]
-                    {
-                        "specialty_longerrange"
-                    },
-                    isWeapon = true
-                },
-                new SharpshooterPerk()
-                {
-                    perkName = "Stability",
-                    perks = new[]
-                    {
-                        "specialty_reducedsway"
-                    },
-                    isWeapon = true
-                },
-                new SharpshooterPerk()
-                {
-                    perkName = "Speed",
-                    perks = new[]
-                    {
-                        "specialty_lightweight"
-                    },
-                    isWeapon = true
-                },
-            };
-
-            foreach (var perk in _perkList)
-            {
-                var shaderName = perk.perks[0] + (perk.isWeapon ? "" : "_upgrade");
-                Call("precacheShader", shaderName);
-            }
 
             _currentWeapon = Weapon.GetRandomWeapon();
 
@@ -136,37 +55,11 @@ namespace Sharpshooter
 
             PlayerConnected += new Action<Entity>(entity =>
             {
-                CreatePerkHUD(entity);
-
                 entity.OnNotify("joined_team", player =>
                 {
                     entity.Call("closePopupMenu");
                     entity.Call("closeIngameMenu");
                     entity.Notify("menuresponse", "changeclass", "class1");
-                });
-
-                entity.OnInterval(300, player =>
-                {
-                    if (player.IsAlive)
-                    {
-                        var weapon = player.CurrentWeapon;
-
-                        if (weapon != "none" && weapon != "" && !weapon.Contains(_currentWeapon.Code))
-                        {
-                            player.TakeAllWeapons();
-
-                            player.GiveWeapon(_currentWeapon.Code);
-                            player.Call("giveMaxAmmo", _currentWeapon.Code);
-
-                            player.AfterDelay(100, ex =>
-                            {
-                                ex.SwitchToWeaponImmediate(_currentWeapon.Code);
-                                ex.Call("iprintlnbold", _currentWeapon.Name);
-                            });
-                        }
-                    }
-
-                    return true;
                 });
 
                 entity.OnInterval(3500, player =>
@@ -247,11 +140,6 @@ namespace Sharpshooter
                     entity.TakeAllWeapons();
                     entity.Call("clearPerks");
 
-                    ResetPerkHUD(entity);
-
-                    entity.SetField("shrp_perkc", 0);
-                    entity.SetField("shrp_perks", new Parameter(new string[3]));
-
                     entity.GiveWeapon(_currentWeapon.Code);
                     entity.Call("giveMaxAmmo", _currentWeapon.Code);
 
@@ -285,123 +173,9 @@ namespace Sharpshooter
             }
         }
 
-        public override void OnPlayerKilled(Entity player, Entity inflictor, Entity attacker, int damage, string mod, string weapon, Vector3 dir, string hitLoc)
-        {
-            if (attacker != player && attacker.GetField<string>("classname") == "player" && attacker.IsAlive)
-            {
-                GiveRandomPerk(attacker);
-            }
-        }
-
         private string FormatTime(int seconds)
         {
             return string.Format("{0}:{1}", seconds / 60, (seconds % 60).ToString().PadLeft(2, '0'));
-        }
-
-
-        private void GiveRandomPerk(Entity player)
-        {
-            var pc = player.GetField<int>("shrp_perkc");
-
-            if (pc < 3)
-            {
-                var usedPerks = player.GetField<string[]>("shrp_perks");
-
-                var validPerk = false;
-                SharpshooterPerk perk = null;
-
-                while (!validPerk)
-                {
-                    perk = _perkList[_rng.Next(0, _perkList.Length)];
-
-                    if (!usedPerks.Contains(perk.perks[0]))
-                    {
-                        validPerk = true;
-                    }
-                }
-
-                foreach (var p in perk.perks)
-                {
-                    player.SetPerk(p, true, false);
-                }
-
-                UpdatePerkHUD(player, pc, perk);
-
-                usedPerks[pc] = perk.perks[0];
-                player.SetField("shrp_perkc", pc + 1);
-            }
-        }
-
-        private void CreatePerkHUD(Entity player)
-        {
-            var icons = new HudElem[3];
-
-            new[] { -300, -250, -200 }.ToList().ForEach(y =>
-            {
-                var i = (y + 300) / 50;
-
-                var elem = HudElem.CreateIcon(player, "specialty_quickdraw_upgrade", 40, 40);
-                elem.SetPoint("bottom right", "bottom right", -120, y);
-                elem.Alpha = 0;
-                elem.HideWhenInMenu = true;
-                elem.Foreground = true;
-
-                icons[i] = elem;
-            });
-
-            player.SetField("shrp_perkIcons", new Parameter(icons));
-
-            var names = new HudElem[3];
-
-            new[] { -275, -225, -175 }.ToList().ForEach(y =>
-            {
-                var i = (y + 275) / 50;
-
-                var elem = HudElem.NewClientHudElem(player);
-                elem.X = 40;
-                elem.Y = y;
-                elem.AlignX = "right";
-                elem.AlignY = "bottom";
-                elem.HorzAlign = "right";
-                elem.VertAlign = "bottom";
-                elem.FontScale = 1.5f;
-                elem.SetText("Quickdraw");
-                elem.Alpha = 0;
-                elem.HideWhenInMenu = true;
-                elem.Foreground = true;
-
-                names[i] = elem;
-            });
-
-            player.SetField("shrp_perkNames", new Parameter(names));
-        }
-
-        private void ResetPerkHUD(Entity player)
-        {
-            var icons = player.GetField<HudElem[]>("shrp_perkIcons");
-
-            foreach (var icon in icons)
-            {
-                icon.Alpha = 0;
-            }
-
-            var texts = player.GetField<HudElem[]>("shrp_perkNames");
-
-            foreach (var text in texts)
-            {
-                text.Alpha = 0;
-            }
-        }
-
-        private void UpdatePerkHUD(Entity player, int index, SharpshooterPerk perk)
-        {
-            var icons = player.GetField<HudElem[]>("shrp_perkIcons");
-            icons[index].SetShader(perk.perks[0] + (perk.isWeapon ? "" : "_upgrade"), 40, 40);
-            icons[index].Alpha = 1;
-
-            var texts = player.GetField<HudElem[]>("shrp_perkNames");
-            texts[index].SetText(perk.perkName);
-            texts[index].Alpha = 1;
         }
     }
 }

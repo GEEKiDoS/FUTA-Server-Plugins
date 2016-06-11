@@ -4,10 +4,9 @@ using System.Linq;
 using System.Text;
 using InfinityScript;
 
-namespace Hack
+namespace SATm
 {
-    public class GiveWeapon
+    public class AntiRageQuit : SATm
     {
-        
     }
 }
