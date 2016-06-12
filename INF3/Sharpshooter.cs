@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using InfinityScript;
 
-namespace Exo
+namespace INF3
 {
     public class Sharpshooter : BaseScript
     {
@@ -16,9 +16,6 @@ namespace Exo
 
         public Sharpshooter()
         {
-            Entity entity = Call<Entity>("getent", new Parameter[] { "care_package", "targetname" });
-            Entity _airdropCollision = Call<Entity>("getent", new Parameter[] { entity.GetField<string>("target"), "targetname" });
-
             _currentWeapon = Weapon.GetRandomWeapon();
             _mulekickWeapon = Weapon.GetRandomWeapon();
 

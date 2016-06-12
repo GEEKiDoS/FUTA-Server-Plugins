@@ -2,7 +2,7 @@
 using System.Linq;
 using InfinityScript;
 
-namespace Exo
+namespace INF3
 {
     public class Weapon
     {

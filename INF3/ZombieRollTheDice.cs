@@ -6,8 +6,7 @@ using InfinityScript;
 
 namespace INF3
 {
-    public class TargetSelector : BaseScript
+    public class ZombieRollTheDice : BaseScript
     {
-        
     }
 }

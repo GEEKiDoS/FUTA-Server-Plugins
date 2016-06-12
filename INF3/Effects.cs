@@ -6,8 +6,11 @@ using InfinityScript;
 
 namespace INF3
 {
-    public class TargetSelector : BaseScript
+    public static class Effects
     {
-        
+        public static void NukeVersion(this Entity player)
+        {
+
+        }
     }
 }

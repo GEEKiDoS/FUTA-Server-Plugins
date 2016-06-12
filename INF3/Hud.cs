@@ -2,14 +2,42 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using InfinityScript;
 
-namespace Exo
+namespace INF3
 {
     public static class Hud
     {
+        public static void CreateCashHud(this Entity player)
+        {
+            HudElem hud = HudElem.CreateFontString(player, "hudbig", 1f);
+            hud.SetPoint("right", "right", -50, 100);
+            hud.HideWhenInMenu = true;
+            player.OnInterval(100, delegate (Entity ent)
+            {
+                if (player.GetTeam() == "allies")
+                {
+                    hud.SetText("^3$: ^7" + player.GetField<int>("aiz_cash"));
+                }
+                return player.GetTeam() == "allies";
+            });
+        }
+
+        public static void CreatePointHud(this Entity player)
+        {
+            HudElem hud = HudElem.CreateFontString(player, "default", 0.7f);
+            hud.SetPoint("right", "right", -50, 120);
+            hud.HideWhenInMenu = true;
+            player.OnInterval(100, delegate (Entity ent)
+            {
+                if (player.GetTeam() == "allies")
+                {
+                    hud.SetText("^5Points: ^7" + player.GetField<int>("aiz_point"));
+                }
+                return player.GetTeam() == "allies";
+            });
+        }
+
         public static HudElem GamblerText(this Entity player, string text, Vector3 color, Vector3 glowColor, float intensity, float glowIntensity)
         {
             var hud = HudElem.CreateFontString(player, "hudbig", 2);
@@ -41,6 +69,51 @@ namespace Exo
             });
 
             return hud;
+        }
+
+        public static void WelcomeMessage(this Entity player, string[] messages, Vector3 color, Vector3 glowColor, float intensity, float glowIntensity)
+        {
+            var list = new List<HudElem>();
+
+            for (int i = 0; i < messages.Length; i++)
+            {
+                player.AfterDelay(i * 500, e =>
+                {
+                    var hud = HudElem.CreateFontString(player, "objective", 1.5f);
+                    hud.SetPoint("TOPMIDDLE", "TOPMIDDLE", 0, 45 + i);
+                    hud.FontScale = 6;
+                    hud.Color = color;
+                    hud.SetText(messages[i]);
+                    hud.Alpha = 0;
+                    hud.GlowColor = glowColor;
+                    hud.GlowAlpha = glowIntensity;
+
+                    hud.ChangeFontScaleOverTime(0.2f, 1.5f);
+                    hud.Call("fadeovertime", 0.2f);
+                    hud.Alpha = intensity;
+
+                    list.Add(hud);
+                });
+            }
+            player.AfterDelay(messages.Length * 500 + 4000, e =>
+            {
+                for (int i = 0; i < messages.Length; i++)
+                {
+                    player.AfterDelay(i * 500, en =>
+                    {
+                        list[i].ChangeFontScaleOverTime(0.2f, 4.5f);
+                        list[i].Call("fadeovertime", 0.2f);
+                        list[i].Alpha = 0;
+                    });
+                }
+            });
+            player.AfterDelay(messages.Length * 1000 + 400, ent =>
+            {
+                foreach (var item in list)
+                {
+                    item.Call("destroy");
+                }
+            });
         }
 
         public static HudElem PerkHud(this Entity player, string shader, Vector3 color, string text)
@@ -93,7 +166,7 @@ namespace Exo
                 hudshader.X = -410 + MultiplyTimes;
                 hudshader.Y = -187;
             });
-            player.AfterDelay(4700, e => 
+            player.AfterDelay(4700, e =>
             {
                 hudtext.Call("destroy");
             });

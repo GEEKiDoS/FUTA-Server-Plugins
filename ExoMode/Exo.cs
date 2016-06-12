@@ -4,11 +4,11 @@ using System.Linq;
 using System.Text;
 using InfinityScript;
 
-namespace Exo
+namespace INF3
 {
-    public class Exo : BaseScript
+    public class INF3 : BaseScript
     {
-        public Exo()
+        public INF3()
         {
             PlayerConnected += new Action<Entity>(player =>
             {

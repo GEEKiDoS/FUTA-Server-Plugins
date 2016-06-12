@@ -2,7 +2,7 @@
 using System.Runtime.InteropServices;
 using InfinityScript;
 
-namespace Exo
+namespace INF3
 {
     public static class Tracer
     {
