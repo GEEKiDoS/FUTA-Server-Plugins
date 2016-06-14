@@ -17,6 +17,7 @@ namespace INF3
             Utility.PreCacheShader("cardicon_tictacboom");
             Utility.PreCacheShader("cardicon_bulb");
             Utility.PreCacheShader("cardicon_award_jets");
+            Utility.PreCacheShader("cardicon_bear");
 
             //Perks
             Utility.PreCacheShader("specialty_finalstand"); //Quick Revive
@@ -26,8 +27,8 @@ namespace INF3
             Utility.PreCacheShader("specialty_twoprimaries"); //Mule Kick
             Utility.PreCacheShader("specialty_moredamage"); //Double Tap
             Utility.PreCacheShader("cardicon_headshot"); //Dead Shot
-            Utility.PreCacheShader("specialty_blastshield"); //PhD
-            Utility.PreCacheShader("cardicon_trophy"); //Electric Cherry
+            Utility.PreCacheShader("_specialty_blastshield"); //PhD
+            Utility.PreCacheShader("cardicon_cod4"); //Electric Cherry
             Utility.PreCacheShader("cardicon_soap_bar"); //Widow's Wine
 
             //Other
@@ -42,15 +43,23 @@ namespace INF3
             Call("setdvar", "scr_aiz_power", 1);
 
             //Bouns Drops
-            Call("setdvar", "bouns_double_point", 0);
+            Call("setdvar", "bouns_double_points", 0);
             Call("setdvar", "bouns_insta_kill", 0);
             Call("setdvar", "bouns_fire_sale", 0);
             Call("setdvar", "bouns_zombie_blood", 0);
 
             PlayerConnected += player =>
             {
+                player.SetField("aiz_perkhuds", new Parameter(new List<HudElem>()));
+
                 OnSpawned(player);
                 player.SpawnedPlayer += () => OnSpawned(player);
+
+                player.OnInterval(100, ent =>
+                {
+                    player.Call("setmovespeedscale", player.GetField<float>("speed"));
+                    return player.IsPlayer;
+                });
 
                 #region Magic Weapons
 
@@ -85,16 +94,21 @@ namespace INF3
 
                 #endregion
 
-                string[] welcomemessages = new string[]
+                var welcomemessages = new List<string>
                 {
-                    "Welcome "+player.Name,
+                    "Welcome " + player.Name,
                     "Project INF3 v0.1 Alpha",
                     "Create by A2ON.",
                     "Source code in: https://github.com/A2ON/",
                     "Map: "+Utility.MapName,
                     "Enjoy playing!",
                 };
-                player.WelcomeMessage(welcomemessages, new Vector3(1, 1, 1), new Vector3(0.3f, 0.9f, 0.3f), 1, 0.85f);
+
+                player.WelcomeMessage(welcomemessages, new Vector3(1, 1, 1), new Vector3(1f, 0.5f, 1f), 1, 0.85f);
+
+                player.CreateCashHud();
+                player.CreatePointHud();
+                player.Credits();
             };
         }
 
@@ -104,21 +118,307 @@ namespace INF3
             player.SetField("aiz_point", 0);
 
             player.SetField("speed", 1f);
-            player.SetField("recoil", 1f);
+            player.SetField("usingtelepot", 0);
             player.SetField("isstick", 0);
 
-            player.SetField("aiz_perks", 0);
-            player.SetField("aiz_perkhuds", new Parameter(new List<HudElem>()));
+            player.SetField("xpUpdateTotal", 0);
 
-            player.SetField("perk_revive", 0);
-            player.SetField("perk_juggernog", 0);
-            player.SetField("perk_staminup", 0);
-            player.SetField("perk_mulekick", 0);
-            player.SetField("perk_doubletap", 0);
-            player.SetField("perk_deadshot", 0);
-            player.SetField("perk_phd", 0);
-            player.SetField("perk_cherry", 0);
-            player.SetField("perk_widow", 0);
+            player.SetField("aiz_perks", 0);
+
+            if (player.GetTeam() == "allies")
+            {
+                player.ResetPerks();
+
+                player.SetField("incantation", 0);
+
+                player.Call("setviewmodel", "viewmodel_base_viewhands");
+
+                player.Call("clearperks");
+                player.SetPerk("specialty_laststandoffhand", true, false);
+                player.SetPerk("specialty_finalstand", true, false);
+            }
+            else if (player.GetTeam() == "axis")
+            {
+                player.SetField("zombie_incantation", 0);
+
+                SetZombieModel(player);
+
+                player.Call("clearperks");
+                player.SetPerk("specialty_falldamage", true, false);
+                player.SetPerk("specialty_lightweight", true, false);
+                player.SetPerk("specialty_longersprint", true, false);
+                player.SetPerk("specialty_grenadepulldeath", true, false);
+                player.SetPerk("specialty_fastoffhand", true, false);
+                player.SetPerk("specialty_fastreload", true, false);
+                player.SetPerk("specialty_paint", true, false);
+                player.SetPerk("specialty_autospot", true, false);
+                player.SetPerk("specialty_stalker", true, false);
+                player.SetPerk("specialty_marksman", true, false);
+                player.SetPerk("specialty_quickswap", true, false);
+                player.SetPerk("specialty_quickdraw", true, false);
+                player.SetPerk("specialty_fastermelee", true, false);
+                player.SetPerk("specialty_selectivehearing", true, false);
+                player.SetPerk("specialty_steadyaimpro", true, false);
+                player.SetPerk("specialty_sitrep", true, false);
+                player.SetPerk("specialty_detectexplosive", true, false);
+                player.SetPerk("specialty_fastsprintrecovery", true, false);
+                player.SetPerk("specialty_fastmeleerecovery", true, false);
+                player.SetPerk("specialty_bulletpenetration", true, false);
+                player.SetPerk("specialty_bulletaccuracy", true, false);
+
+                if (Call<int>("getteamscore", "axis") == 1)
+                {
+                    player.Call("givemaxammo", player.CurrentWeapon);
+                    player.SetField("maxhealth", 1000);
+                    player.Health = 1000;
+                }
+            }
+        }
+
+        #region Player Model
+
+        public string GetSniperEnv(string mapname)
+        {
+            switch (mapname)
+            {
+                case "mp_alpha":
+                case "mp_bootleg":
+                case "mp_exchange":
+                case "mp_hardhat":
+                case "mp_interchange":
+                case "mp_mogadishu":
+                case "mp_paris":
+                case "mp_plaza2":
+                case "mp_underground":
+                case "mp_cement":
+                case "mp_hillside_ss":
+                case "mp_overwatch":
+                case "mp_terminal_cls":
+                case "mp_aground_ss":
+                case "mp_courtyard_ss":
+                case "mp_meteora":
+                case "mp_morningwood":
+                case "mp_qadeem":
+                case "mp_crosswalk_ss":
+                case "mp_italy":
+                case "mp_boardwalk":
+                case "mp_roughneck":
+                case "mp_nola":
+                    return "urban";
+                case "mp_dome":
+                case "mp_restrepo_ss":
+                case "mp_burn_ss":
+                case "mp_seatown":
+                case "mp_shipbreaker":
+                case "mp_moab":
+                    return "desert";
+                case "mp_bravo":
+                case "mp_carbon":
+                case "mp_park":
+                case "mp_six_ss":
+                case "mp_village":
+                case "mp_lambeth":
+                    return "woodland";
+                case "mp_radar":
+                    return "arctic";
+            }
+            return "";
+        }
+        private string GetModelEnv(string mapname)
+        {
+            switch (mapname)
+            {
+                case "mp_alpha":
+                case "mp_dome":
+                case "mp_paris":
+                case "mp_plaza2":
+                case "mp_terminal_cls":
+                case "mp_bootleg":
+                case "mp_restrepo_ss":
+                case "mp_hillside_ss":
+                    return "russian_urban";
+                case "mp_exchange":
+                case "mp_hardhat":
+                case "mp_underground":
+                case "mp_cement":
+                case "mp_overwatch":
+                case "mp_nola":
+                case "mp_boardwalk":
+                case "mp_roughneck":
+                case "mp_crosswalk_ss":
+                    return "russian_air";
+                case "mp_interchange":
+                case "mp_lambeth":
+                case "mp_six_ss":
+                case "mp_moab":
+                case "mp_park":
+                    return "russian_woodland";
+                case "mp_radar":
+                    return "russian_arctic";
+                case "mp_seatown":
+                case "mp_aground_ss":
+                case "mp_burn_ss":
+                case "mp_courtyard_ss":
+                case "mp_italy":
+                case "mp_meteora":
+                case "mp_morningwood":
+                case "mp_qadeem":
+                    return "henchmen";
+            }
+
+            return string.Empty;
+        }
+
+        private string[] blockMaps = new string[]
+        {
+                "mp_seatown",
+                "mp_aground_ss",
+                "mp_courtyard_ss",
+                "mp_italy",
+                "mp_meteora",
+                "mp_morningwood",
+                "mp_qadeem",
+                "mp_burn_ss"
+        };
+        private string[] blockMaps2 = new string[]
+        {
+                "mp_bravo",
+                "mp_carbon",
+                "mp_mogadishu",
+                "mp_village",
+                "mp_shipbreaker",
+        };
+
+        private void SetZombieModel(Entity player)
+        {
+            string str = GetModelEnv(Utility.MapName);
+            string str2 = GetSniperEnv(Utility.MapName);
+
+            if (Call<int>("getteamscore", "axis") == 1)
+            {
+                if (Utility.MapName == "mp_radar")
+                {
+                    player.Call("setmodel", "mp_body_ally_ghillie_desert_sniper");
+                }
+                else
+                {
+                    if (blockMaps2.Contains(Utility.MapName))
+                    {
+                        player.Call("setmodel", "mp_body_opforce_ghillie_africa_militia_sniper");
+                    }
+                    else
+                    {
+                        player.Call("setmodel", "mp_body_ally_ghillie_" + str2 + "_sniper");
+                    }
+                }
+                player.Call("setviewmodel", "viewhands_iw5_ghillie_" + str2);
+            }
+            else
+            {
+                if (blockMaps2.Contains(Utility.MapName))
+                {
+                    player.Call("setmodel", "mp_body_opforce_africa_militia_sniper");
+                }
+                else
+                {
+                    player.Call("setmodel", "mp_body_opforce_" + str + "_sniper");
+                }
+
+
+                if (blockMaps2.Contains(Utility.MapName))
+                {
+                    player.Call("setviewmodel", "viewhands_militia");
+                }
+                else if (!blockMaps.Contains(Utility.MapName))
+                {
+                    player.Call("setviewmodel", "viewhands_op_force");
+                }
+            }
+        }
+
+        #endregion
+
+        public override void OnPlayerDamage(Entity player, Entity inflictor, Entity attacker, int damage, int dFlags, string mod, string weapon, Vector3 point, Vector3 dir, string hitLoc)
+        {
+            if (attacker == null || !attacker.IsPlayer || attacker.GetTeam() == player.GetTeam())
+                return;
+
+            if (attacker.GetTeam() == "allies")
+            {
+                if (Call<int>("getdvarint", "bouns_insta_kill") == 1)
+                {
+                    player.Health = 3;
+                    return;
+                }
+                else
+                {
+                    if (weapon.Contains("iw5_msr") || weapon.Contains("iw5_l96a1") || weapon.Contains("iw5_as50"))
+                    {
+                        player.Health = 3;
+                        return;
+                    }
+                    if (mod == "MOD_MELEE")
+                    {
+                        player.Health = 3;
+                        return;
+                    }
+                }
+            }
+        }
+
+        public override void OnPlayerKilled(Entity player, Entity inflictor, Entity attacker, int damage, string mod, string weapon, Vector3 dir, string hitLoc)
+        {
+            if (attacker == null || !attacker.IsPlayer || attacker.GetTeam() == player.GetTeam())
+                return;
+
+            if (attacker.GetTeam() == "allies")
+            {
+                if (Call<int>("getdvarint", "bouns_double_points") == 1)
+                {
+                    attacker.WinCash(200);
+                    attacker.WinPoint(2);
+
+                    attacker.TextPopup("Killed Zombie");
+                    attacker.ScorePopup(200, new Vector3(0, 1, 0), 1);
+                }
+                else
+                {
+                    attacker.WinCash(100);
+                    attacker.WinPoint(1);
+
+                    attacker.TextPopup("Killed Zombie");
+                    attacker.ScorePopup(100, new Vector3(0, 1, 0), 1);
+                }
+                if (player.GetField<int>("zombie_incantation") == 1)
+                {
+                    attacker.Health = 1000;
+                    AfterDelay(10, () =>
+                    {
+                        attacker.RadiusExploed(player.Origin);
+                        player.Call("iprintlnbold", "^0Incantation!");
+                    });
+                    AfterDelay(100, () => attacker.Health = attacker.GetField<int>("maxhealth"));
+                }
+            }
+            else
+            {
+                attacker.TextPopup("Killed Human");
+
+                if (player.GetField<int>("incantation") == 1)
+                {
+                    attacker.Health = 1000;
+                    AfterDelay(10, () =>
+                    {
+                        attacker.RadiusExploed(player.Origin);
+                        player.Call("iprintlnbold", "^0Incantation!");
+                    });
+                    AfterDelay(100, () => attacker.Health = attacker.GetField<int>("maxhealth"));
+                }
+                if (Call<int>("bouns_zombie_blood") == 1)
+                {
+                    player.Call("show");
+                }
+            }
         }
     }
 }

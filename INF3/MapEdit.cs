@@ -9,7 +9,9 @@ namespace INF3
 {
     public class MapEdit : BaseScript
     {
-        private Entity _airdropCollision;
+        public static Entity _airdropCollision;
+        public static Entity _nullCollision;
+
         private static string _currentfile;
         private int curObjID;
         private static List<Entity> usables = new List<Entity>();
@@ -19,12 +21,17 @@ namespace INF3
             var _e = Call<Entity>("getent", "care_package", "targetname");
             _airdropCollision = Call<Entity>("getent", _e.GetField<string>("target"), "targetname");
 
+            _nullCollision = Utility.Spawn("script_origin", new Vector3());
+
             PlayerConnected += player =>
             {
-                player.SetField("attackeddoor", 0);
-                player.SetField("repairsleft", 0);
+                player.Call("notifyonplayercommand", "triggeruse", "+activate");
+                player.OnNotify("triggeruse", ent => UsableThink(player));
 
-                UsableThink(player);
+                player.SetField("attackeddoor", 0);
+                player.SetField("usingtelepot", 0);
+
+                UsableHud(player);
                 TrampolineThink(player);
             };
 
@@ -103,16 +110,27 @@ namespace INF3
             return "Press ^3[{+activate}] ^7to use SAM turret.";
         }
 
-        private string ZiplineText()
+        private string ZiplineText(Entity ent)
         {
-            return "Press ^3[{+activate}] ^7to use zipline.";
+            if (ent.GetField<string>("state") == "idle")
+            {
+                return "Press ^3[{+activate}] ^7to use zipline.";
+            }
+            return "";
         }
 
         private string TeleporterText(Entity player)
         {
             if (player.GetTeam() == "allies")
             {
-                return "Press ^3[{+activate}] ^7to use teleporter. [Cost: ^2$^3500^7]";
+                if (Call<int>("getdvarint", "scr_aiz_power") == 0 || Call<int>("getdvarint", "scr_aiz_power") == 2)
+                {
+                    return "Requires Electricity";
+                }
+                if (player.GetField<int>("usingtelepot") == 0)
+                {
+                    return "Press ^3[{+activate}] ^7to use teleporter. [Cost: ^2$^3500^7]";
+                }
             }
             return "";
         }
@@ -126,7 +144,10 @@ namespace INF3
         {
             if (player.GetTeam() == "allies")
             {
-                return "Press ^3[{+activate}] ^7to activate the electricity. [Cost: ^2$^3700^7]";
+                if (Call<int>("getdvarint", "scr_aiz_power") == 0)
+                {
+                    return "Press ^3[{+activate}] ^7to activate the electricity. [Cost: ^2$^3700^7]";
+                }
             }
             return "";
         }
@@ -135,16 +156,19 @@ namespace INF3
         {
             if (player.GetTeam() == "allies")
             {
-                return "Press ^3[{+activate}] ^7to by ammo for you ^1Current Weapon^7. [Cost: ^2$^3300^7]";
+                return "Press ^3[{+activate}] ^7to buy ammo. [Cost: ^2$^3300^7]";
             }
             return "";
         }
 
-        private string GamblerText(Entity player)
+        private string GamblerText(Entity ent, Entity player)
         {
             if (player.GetTeam() == "allies")
             {
-                return "Press ^3[{+activate}] ^7to gamble. [Cost: ^2$^3500^7]";
+                if (ent.GetField<string>("state") == "idle")
+                {
+                    return "Press ^3[{+activate}] ^7to gamble. [Cost: ^2$^3500^7]";
+                }
             }
             return "";
         }
@@ -153,11 +177,11 @@ namespace INF3
         {
             if (player.GetTeam() == "allies")
             {
-                if (Call<int>("scr_aiz_power") == 0 || Call<int>("scr_aiz_power") == 2)
+                if (Call<int>("getdvarint", "scr_aiz_power") == 0 || Call<int>("getdvarint", "scr_aiz_power") == 2)
                 {
                     return "Requires Electricity";
                 }
-                return "Press ^3[{+activate}] ^7to buy random airstrike. [Cost: ^310 ^5Points^7]";
+                return "Press ^3[{+activate}] ^7to buy random airstrike. [Cost: ^310 ^5Bouns Points^7]";
             }
             return "";
         }
@@ -166,24 +190,27 @@ namespace INF3
         {
             if (player.GetTeam() == "allies")
             {
-                if (Call<int>("scr_aiz_power") == 0 || Call<int>("scr_aiz_power") == 2)
+                if (Call<int>("getdvarint", "scr_aiz_power") == 0 || Call<int>("getdvarint", "scr_aiz_power") == 2)
                 {
                     return "Requires Electricity";
                 }
-                return perk.GetPerkBoxString();
+                return perk.PerkBoxHintString();
             }
             return "";
         }
 
-        private string RandomPerkText(Entity player)
+        private string RandomPerkText(Entity ent, Entity player)
         {
             if (player.GetTeam() == "allies")
             {
-                if (Call<int>("scr_aiz_power") == 0 || Call<int>("scr_aiz_power") == 2)
+                if (Call<int>("getdvarint", "scr_aiz_power") == 0 || Call<int>("getdvarint", "scr_aiz_power") == 2)
                 {
                     return "Requires Electricity";
                 }
-                return "Press ^3[{+activate}] ^7to use Der Wunderfizz. [Cost: ^310 ^5Points^7]";
+                if (ent.GetField<string>("state") == "idle")
+                {
+                    return "Press ^3[{+activate}] ^7to use Der Wunderfizz. [Cost: ^310 ^5Bouns Points^7]";
+                }
             }
             return "";
         }
@@ -198,6 +225,7 @@ namespace INF3
             {
                 try
                 {
+                    var flag = false;
                     foreach (var ent in usables)
                     {
                         if (player.Origin.DistanceTo(ent.Origin) >= ent.GetField<int>("range"))
@@ -225,7 +253,7 @@ namespace INF3
                                 message.SetText(SAMText());
                                 break;
                             case "zipline":
-                                message.SetText(ZiplineText());
+                                message.SetText(ZiplineText(ent));
                                 break;
                             case "teleporter":
                                 message.SetText(TeleporterText(player));
@@ -240,7 +268,7 @@ namespace INF3
                                 message.SetText(AmmoText(player));
                                 break;
                             case "gambler":
-                                message.SetText(GamblerText(player));
+                                message.SetText(GamblerText(ent, player));
                                 break;
                             case "airstrike":
                                 message.SetText(AirstrikeText(player));
@@ -249,9 +277,14 @@ namespace INF3
                                 message.SetText(PerkText(player, ent.GetField<Perks.Perk>("perk")));
                                 break;
                             case "randomperk":
-                                message.SetText(RandomPerkText(player));
+                                message.SetText(RandomPerkText(ent, player));
                                 break;
                         }
+                        flag = true;
+                    }
+                    if (!flag)
+                    {
+                        message.SetText("");
                     }
                 }
                 catch (Exception)
@@ -267,23 +300,21 @@ namespace INF3
 
         private void UsableThink(Entity player)
         {
-            OnInterval(100, () =>
+            try
             {
-                try
+                foreach (var ent in usables)
                 {
-                    foreach (var ent in usables)
+                    if (player.Origin.DistanceTo(ent.Origin) < ent.GetField<int>("range"))
                     {
-                        if (player.Origin.DistanceTo(ent.Origin) >= ent.GetField<int>("range"))
-                        {
-                            continue;
-                        }
-                        if (player.Call<int>("useButtonPressed") == 1 && player.IsAlive && !player.CurrentWeapon.Contains("ac130") && !player.CurrentWeapon.Contains("killstreak") && !player.CurrentWeapon.Contains("remote"))
+                        if (player.IsAlive && !player.CurrentWeapon.Contains("ac130") && !player.CurrentWeapon.Contains("killstreak") && !player.CurrentWeapon.Contains("remote"))
                         {
                             switch (ent.GetField<string>("usabletype"))
                             {
                                 case "door":
+                                    BoxFunction.UseDoor(ent, player);
                                     break;
                                 case "paydoor":
+                                    BoxFunction.UsePayDoor(ent, player);
                                     break;
                                 case "turret":
                                     break;
@@ -294,30 +325,49 @@ namespace INF3
                                 case "sam":
                                     break;
                                 case "zipline":
+                                    BoxFunction.UseZipline(ent, player);
                                     break;
                                 case "teleporter":
+                                    if (Call<int>("getdvarint", "scr_aiz_power") == 1)
+                                    {
+                                        BoxFunction.UseTeleporter(ent, player);
+                                    }
                                     break;
                                 case "power":
+                                    BoxFunction.UsePower(ent, player);
                                     break;
                                 case "ammo":
+                                    BoxFunction.UseAmmo(player);
                                     break;
                                 case "gambler":
+                                    BoxFunction.UseGambler(ent, player);
                                     break;
                                 case "airstrike":
+                                    if (Call<int>("getdvarint", "scr_aiz_power") == 1)
+                                    {
+                                        BoxFunction.UseAirstrike(player);
+                                    }
                                     break;
                                 case "perk":
+                                    if (Call<int>("getdvarint", "scr_aiz_power") == 1)
+                                    {
+                                        BoxFunction.UsePerk(player, ent.GetField<Perks.Perk>("perk"));
+                                    }
                                     break;
                                 case "randomperk":
+                                    if (Call<int>("getdvarint", "scr_aiz_power") == 1)
+                                    {
+                                        BoxFunction.UseRandomPerk(ent, player);
+                                    }
                                     break;
                             }
                         }
                     }
                 }
-                catch (Exception)
-                {
-                }
-                return true;
-            });
+            }
+            catch (Exception)
+            {
+            }
         }
 
         private void TrampolineThink(Entity player)
@@ -334,7 +384,7 @@ namespace INF3
                         }
                         if (ent.GetField<string>("usabletype") == "trampoline" && player.Call<int>("IsOnGround") == 0 && player.IsAlive && !player.CurrentWeapon.Contains("ac130") && !player.CurrentWeapon.Contains("killstreak") && !player.CurrentWeapon.Contains("remote"))
                         {
-
+                            BoxFunction.UseTrampoline(ent, player);
                         }
                     }
                 }
@@ -347,11 +397,18 @@ namespace INF3
 
         public void InitMapEdit()
         {
-            var files = Directory.GetFiles("scripts\\inf3-maps\\" + Utility.MapName + "\\");
-            _currentfile = files[Utility.rng.Next(files.Length)];
-            if (File.Exists(_currentfile))
+            if (Directory.Exists("scripts\\inf3-maps\\" + Utility.MapName))
             {
-                LoadMapEdit();
+                Directory.CreateDirectory("scripts\\inf3-maps\\" + Utility.MapName);
+            }
+            var files = Directory.GetFiles("scripts\\inf3-maps\\" + Utility.MapName + "\\");
+            if (files.Length > 0)
+            {
+                _currentfile = files[Utility.rng.Next(files.Length)];
+                if (File.Exists(_currentfile))
+                {
+                    LoadMapEdit();
+                }
             }
         }
 
@@ -381,7 +438,7 @@ namespace INF3
             elem.Alpha = 0.6f;
             elem.X = ent.Origin.X;
             elem.Y = ent.Origin.Y;
-            elem.Z = ent.Origin.Z + 100f;
+            elem.Z = ent.Origin.Z + 50f;
             elem.Call("SetWayPoint", 1, 1);
 
             return elem;
@@ -407,7 +464,7 @@ namespace INF3
             int num = 31 - curObjID++;
             Call("objective_state", num, "active");
             Call("objective_position", num, ent.Origin);
-            Call("objective_icon", num, "waypoint_escort");
+            Call("objective_icon", num, shader);
             Call("objective_team", num, team);
 
             return num;
@@ -632,31 +689,32 @@ namespace INF3
             MakeUsable(ent, "teleporter", 50);
         }
 
-        public void CreateTrampoline(Vector3 enter, Vector3 angles, Vector3 exit)
+        public void CreateTrampoline(Vector3 enter, Vector3 angles, int high)
         {
             Entity ent = SpawnCrate(enter, angles);
-            ent.SetField("exit", exit);
-            CreateObjective(ent, "hudicon_neutral");
-            CreateShader(ent, "hudicon_neutral");
-            CreateLaptop(ent);
+            ent.SetField("high", high);
+            CreateObjective(ent, "cardicon_tictacboom");
+            CreateShader(ent, "cardicon_tictacboom");
 
-            MakeUsable(ent, "teleporter", 50);
+            MakeUsable(ent, "trampoline", 50);
         }
 
         public void CreatePower(Vector3 origin, Vector3 angles)
         {
             Entity ent = SpawnCrate(origin, angles);
+            ent.SetField("player", "");
             var obj = CreateObjective(ent, "cardicon_bulb");
             var shader = CreateShader(ent, "cardicon_bulb");
             Call("setdvar", "scr_aiz_power", 0);
             OnInterval(100, () =>
             {
-                if (Call<float>("getdvarint", "scr_aiz_power") == 2)
+                if (Call<int>("getdvarint", "scr_aiz_power") == 2)
                 {
+                    shader.Call("destroy");
+
                     Vector3 origin2 = ent.Origin;
                     origin2.Z += 1000f;
 
-                    Entity _nullCollision = Utility.Spawn("script_origin", ent.Origin);
                     ent.Call("clonebrushmodeltoscriptmodel", _nullCollision);
                     ent.Call("moveto", origin2, 2.3f);
                     AfterDelay(2300, () =>
@@ -666,12 +724,10 @@ namespace INF3
                         usables.Remove(ent);
                         ent.Call("delete");
 
-                        string[] messages = new string[]
+                        var messages = new List<string>
                         {
-                            "Power activated!",
-                            "Now you can buy Perk-a-Cola",
-                            "Call airstrike support",
-                            "Use Der Wunderfizz"
+                            ent.GetField<string>("player"),
+                            "Activated Power!",
                         };
                         foreach (var player in Utility.GetPlayers())
                         {
@@ -692,7 +748,7 @@ namespace INF3
 
         public void CreateAmmo(Vector3 origin, Vector3 angles)
         {
-            Entity ent = Utility.Spawn("script_model", origin);
+            Entity ent = SpawnCrate(origin, angles);
             CreateObjective(ent, "waypoint_ammo_friendly", "allies");
             CreateShader(ent, "waypoint_ammo_friendly", "allies");
             CreateLaptop(ent);
@@ -702,7 +758,7 @@ namespace INF3
 
         public void CreateGambler(Vector3 origin, Vector3 angles)
         {
-            Entity ent = Utility.Spawn("script_model", origin);
+            Entity ent = SpawnCrate(origin, angles);
             CreateObjective(ent, "cardicon_8ball", "allies");
             CreateShader(ent, "cardicon_8ball", "allies");
             var lap = CreateLaptop(ent);
@@ -714,7 +770,7 @@ namespace INF3
 
         public void CreateAirstrike(Vector3 origin, Vector3 angles)
         {
-            Entity ent = Utility.Spawn("script_model", origin);
+            Entity ent = SpawnCrate(origin, angles);
             CreateObjective(ent, "cardicon_award_jets", "allies");
             CreateShader(ent, "cardicon_award_jets", "allies");
             CreateLaptop(ent);
@@ -724,7 +780,7 @@ namespace INF3
 
         public void CreatePerk(Vector3 origin, Vector3 angles, Perks.Perk perk)
         {
-            Entity ent = Utility.Spawn("script_model", origin);
+            Entity ent = SpawnCrate(origin, angles);
             ent.SetField("perk", new Parameter(perk));
             CreateObjective(ent, perk.GetPerkIcon(), "allies");
             CreateShader(ent, perk.GetPerkIcon(), "allies");
@@ -734,10 +790,10 @@ namespace INF3
 
         public void CreateRandomPerk(Vector3 origin, Vector3 angles)
         {
-            Entity ent = Utility.Spawn("script_model", origin);
+            Entity ent = SpawnCrate(origin, angles);
+            ent.SetField("state", "idle");
             CreateObjective(ent, "cardicon_tf141", "allies");
             CreateShader(ent, "cardicon_tf141", "allies");
-            CreateLaptop(ent);
 
             MakeUsable(ent, "randomperk", 50);
         }
@@ -787,7 +843,7 @@ namespace INF3
                                     strArray = strArray[1].Split(new char[] { ';' });
                                     if (strArray.Length >= 2)
                                     {
-                                        SpawnCrate(ParseVector3(strArray[0]), ParseVector3(strArray[1]));
+                                        SpawnCrate(ParseVector3(strArray[0]) + new Vector3(0, 0, 5), new Vector3(0, ParseVector3(strArray[1]).Y, 0));
                                     }
                                     continue;
                                 case "ramp":
@@ -850,7 +906,7 @@ namespace INF3
                                     strArray = strArray[1].Split(new char[] { ';' });
                                     if (strArray.Length >= 3)
                                     {
-                                        SpawnModel(strArray[0], ParseVector3(strArray[1]), ParseVector3(strArray[2]));
+                                        SpawnModel(strArray[0], ParseVector3(strArray[1]), new Vector3(0, ParseVector3(strArray[2]).Y, 0));
                                     }
                                     continue;
                                 case "turret":
@@ -865,63 +921,63 @@ namespace INF3
                                     strArray = strArray[1].Split(new char[] { ';' });
                                     if (strArray.Length >= 4)
                                     {
-                                        CreateZipline(ParseVector3(strArray[0]), ParseVector3(strArray[1]), ParseVector3(strArray[2]), Convert.ToInt32(strArray[3]));
+                                        CreateZipline(ParseVector3(strArray[0]) + new Vector3(0, 0, 5), new Vector3(0, ParseVector3(strArray[1]).Y, 0), ParseVector3(strArray[2]), Convert.ToInt32(strArray[3]));
                                     }
                                     continue;
                                 case "teleporter":
                                     strArray = strArray[1].Split(new char[] { ';' });
                                     if (strArray.Length >= 3)
                                     {
-                                        CreateTeleporter(ParseVector3(strArray[0]), ParseVector3(strArray[1]), ParseVector3(strArray[2]));
+                                        CreateTeleporter(ParseVector3(strArray[0]) + new Vector3(0, 0, 5), new Vector3(0, ParseVector3(strArray[1]).Y, 0), ParseVector3(strArray[2]));
                                     }
                                     continue;
                                 case "trampoline":
                                     strArray = strArray[1].Split(new char[] { ';' });
                                     if (strArray.Length >= 3)
                                     {
-                                        CreateTrampoline(ParseVector3(strArray[0]), ParseVector3(strArray[1]), ParseVector3(strArray[2]));
+                                        CreateTrampoline(ParseVector3(strArray[0]) + new Vector3(0, 0, 5), new Vector3(0, ParseVector3(strArray[1]).Y, 0), Convert.ToInt32(strArray[2]));
                                     }
                                     continue;
                                 case "power":
                                     strArray = strArray[1].Split(new char[] { ';' });
-                                    if (strArray.Length >= 3)
+                                    if (strArray.Length >= 2)
                                     {
-                                        CreatePower(ParseVector3(strArray[0]), ParseVector3(strArray[1]));
+                                        CreatePower(ParseVector3(strArray[0]) + new Vector3(0, 0, 5), new Vector3(0, ParseVector3(strArray[1]).Y, 0));
                                     }
                                     continue;
                                 case "ammo":
                                     strArray = strArray[1].Split(new char[] { ';' });
-                                    if (strArray.Length >= 3)
+                                    if (strArray.Length >= 2)
                                     {
-                                        CreateAmmo(ParseVector3(strArray[0]), ParseVector3(strArray[1]));
+                                        CreateAmmo(ParseVector3(strArray[0]) + new Vector3(0, 0, 5), new Vector3(0, ParseVector3(strArray[1]).Y, 0));
                                     }
                                     continue;
                                 case "gambler":
                                     strArray = strArray[1].Split(new char[] { ';' });
-                                    if (strArray.Length >= 3)
+                                    if (strArray.Length >= 2)
                                     {
-                                        CreateGambler(ParseVector3(strArray[0]), ParseVector3(strArray[1]));
+                                        CreateGambler(ParseVector3(strArray[0]) + new Vector3(0, 0, 5), new Vector3(0, ParseVector3(strArray[1]).Y, 0));
                                     }
                                     continue;
                                 case "airstrike":
                                     strArray = strArray[1].Split(new char[] { ';' });
-                                    if (strArray.Length >= 3)
+                                    if (strArray.Length >= 2)
                                     {
-                                        CreateAirstrike(ParseVector3(strArray[0]), ParseVector3(strArray[1]));
+                                        CreateAirstrike(ParseVector3(strArray[0]) + new Vector3(0, 0, 5), new Vector3(0, ParseVector3(strArray[1]).Y, 0));
                                     }
                                     continue;
                                 case "perk":
                                     strArray = strArray[1].Split(new char[] { ';' });
                                     if (strArray.Length >= 3)
                                     {
-                                        CreatePerk(ParseVector3(strArray[0]), ParseVector3(strArray[1]), (Perks.Perk)Convert.ToInt32(strArray[2]));
+                                        CreatePerk(ParseVector3(strArray[0]) + new Vector3(0, 0, 5), new Vector3(0, ParseVector3(strArray[1]).Y, 0), (Perks.Perk)Convert.ToInt32(strArray[2]));
                                     }
                                     continue;
                                 case "randomperk":
                                     strArray = strArray[1].Split(new char[] { ';' });
-                                    if (strArray.Length >= 3)
+                                    if (strArray.Length >= 2)
                                     {
-                                        CreateRandomPerk(ParseVector3(strArray[0]), ParseVector3(strArray[1]));
+                                        CreateRandomPerk(ParseVector3(strArray[0]) + new Vector3(0, 0, 5), new Vector3(0, ParseVector3(strArray[1]).Y, 0));
                                     }
                                     continue;
                             }

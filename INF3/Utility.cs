@@ -17,7 +17,7 @@ namespace INF3
             get
             {
                 Function.SetEntRef(-1);
-                return Function.Call<string>("getdvar", new Parameter[] { "mapname" });
+                return Function.Call<string>("getdvar", "mapname");
             }
         }
 

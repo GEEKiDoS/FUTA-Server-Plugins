@@ -52,7 +52,6 @@ namespace INF3
             }
             else if (attacker.GetTeam() == "axis")
             {
-
                 if (player.GetField<int>("perk_phd") == 1 && (mod.Contains("EXPLOSIVE") || mod.Contains("PROJECTILE")))
                 {
                     player.Health = player.GetField<int>("maxhealth");
@@ -73,6 +72,15 @@ namespace INF3
         private void QuickReviveThink(Entity player)
         {
 
+        }
+
+        public static void DeadShotThink(Entity player)
+        {
+            player.OnInterval(100, e =>
+            {
+                player.Call("recoilscaleon", 0);
+                return player.IsPlayer && player.GetField<int>("perk_deadshot") == 1;
+            });
         }
 
         private void ElectricCherryThink(Entity player)

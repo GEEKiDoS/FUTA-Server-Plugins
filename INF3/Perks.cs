@@ -22,33 +22,9 @@ namespace INF3
             WidowsWine
         }
 
-        public static string GetPerkBoxString(this Perk perk)
+        public static string PerkBoxHintString(this Perk perk)
         {
-            switch (perk)
-            {
-                case Perk.QuickRevive:
-                    return "Press ^3[{+activate}]^7 to buy Quick Revive. [Cost: ^2$^3500^7]";
-                case Perk.SpeedCola:
-                    return "Press ^3[{+activate}]^7 to buy Speed Cola. [Cost: ^2$^3700^7]";
-                case Perk.Juggernog:
-                    return "Press ^3[{+activate}]^7 to buy Juggernog. [Cost: ^2$^31000^7]";
-                case Perk.StaminUp:
-                    return "Press ^3[{+activate}]^7 to buy Stamin-Up. [Cost: ^2$^3800^7]";
-                case Perk.MuleKick:
-                    return "Press ^3[{+activate}]^7 to buy Mule Kick. [Cost: ^2$^3700^7]";
-                case Perk.DoubelTap:
-                    return "Press ^3[{+activate}]^7 to buy Double Tap Root Beer. [Cost: ^2$^3600^7]";
-                case Perk.DeadShot:
-                    return "Press ^3[{+activate}]^7 to buy Deadshot Daiquiri. [Cost: ^2$^3500^7]"; ;
-                case Perk.PHD:
-                    return "Press ^3[{+activate}]^7 to buy PhD Flopper. [Cost: ^2$^3700^7]";
-                case Perk.ElectricCherry:
-                    return "Press ^3[{+activate}]^7 to buy Electric Cherry. [Cost: ^2$^3800^7]";
-                case Perk.WidowsWine:
-                    return "Press ^3[{+activate}]^7 to buy Widow's Wine. [Cost: ^2$^3900^7]";
-                default:
-                    return "";
-            }
+            return "Press ^3[{+activate}]^7 to buy " + perk.GetPerkFullName() + ". [Cost: ^2$^3" + perk.GetPerkPay() + "^7]";
         }
 
         public static string GetPerkIcon(this Perk perk)
@@ -58,11 +34,11 @@ namespace INF3
                 case Perk.QuickRevive:
                     return "specialty_finalstand";
                 case Perk.SpeedCola:
-                    return "specialty_fastreload"; 
+                    return "specialty_fastreload";
                 case Perk.Juggernog:
-                    return "cardicon_juggernaut_1"; 
+                    return "cardicon_juggernaut_1";
                 case Perk.StaminUp:
-                    return "specialty_longersprint"; 
+                    return "specialty_longersprint";
                 case Perk.MuleKick:
                     return "specialty_twoprimaries";
                 case Perk.DoubelTap:
@@ -72,9 +48,38 @@ namespace INF3
                 case Perk.PHD:
                     return "specialty_blastshield";
                 case Perk.ElectricCherry:
-                    return "cardicon_trophy";
+                    return "cardicon_cod4";
                 case Perk.WidowsWine:
                     return "cardicon_soap_bar";
+                default:
+                    return "";
+            }
+        }
+
+        public static string GetPerkFullName(this Perk perk)
+        {
+            switch (perk)
+            {
+                case Perk.QuickRevive:
+                    return "Quick Revive";
+                case Perk.SpeedCola:
+                    return "Speed Cola";
+                case Perk.Juggernog:
+                    return "Juggernog";
+                case Perk.StaminUp:
+                    return "Stamin-Up";
+                case Perk.MuleKick:
+                    return "Mule Kick";
+                case Perk.DoubelTap:
+                    return "Double Tap Root Beer";
+                case Perk.DeadShot:
+                    return "Deadshot Daiquiri";
+                case Perk.PHD:
+                    return "PhD Flopper";
+                case Perk.ElectricCherry:
+                    return "Electric Cherry";
+                case Perk.WidowsWine:
+                    return "Widow's Wine";
                 default:
                     return "";
             }
@@ -93,13 +98,13 @@ namespace INF3
                 case Perk.StaminUp:
                     return player.PerkHud(perk.GetPerkIcon(), new Vector3(0.9f, 0.9f, 0.3f), "Stamin-Up");
                 case Perk.MuleKick:
-                    return player.PerkHud(perk.GetPerkIcon(), new Vector3(0.9f, 0.9f, 0.3f), "Mule Kick");
+                    return player.PerkHud(perk.GetPerkIcon(), new Vector3(1, 0.3f, 0.3f), "Mule Kick");
                 case Perk.DoubelTap:
-                    return player.PerkHud(perk.GetPerkIcon(), new Vector3(1, 0.3f, 0.3f), "Double Tap II");
+                    return player.PerkHud(perk.GetPerkIcon(), new Vector3(0.9f, 0.5f, 0.2f), "Double Tap II");
                 case Perk.DeadShot:
                     return player.PerkHud(perk.GetPerkIcon(), new Vector3(0.1f, 0.1f, 0.1f), "Deadshot");
                 case Perk.PHD:
-                    return player.PerkHud(perk.GetPerkIcon(), new Vector3(1, 0.3f, 0.3f), "PhD");
+                    return player.PerkHud(perk.GetPerkIcon(), new Vector3(0.7f, 0.5f, 1), "PhD");
                 case Perk.ElectricCherry:
                     return player.PerkHud(perk.GetPerkIcon(), new Vector3(1, 0.3f, 0.3f), "Electric Cherry");
                 case Perk.WidowsWine:
@@ -138,9 +143,9 @@ namespace INF3
             }
         }
 
-        public static void SetAizPerk(this Entity player, Perk perk)
+        public static void GivePerk(this Entity player, Perk perk)
         {
-            player.SetField("aiz_perks", player.GetField<int>("aiz_perk") + 1);
+            player.SetField("aiz_perks", player.GetField<int>("aiz_perks") + 1);
             player.GetField<List<HudElem>>("aiz_perkhuds").Add(player.ShowPerkHud(perk));
 
             switch (perk)
@@ -156,8 +161,10 @@ namespace INF3
                     break;
                 case Perk.Juggernog:
                     player.SetField("perk_juggernog", 1);
-                    player.SetField("maxhealth", 200);
-                    player.Health = 200;
+                    player.Call("setmodel", "mp_fullbody_ally_juggernaut");
+                    player.Call("setviewmodel", "viewhands_juggernaut_ally");
+                    player.SetField("maxhealth", 300);
+                    player.Health = 300;
                     break;
                 case Perk.StaminUp:
                     player.SetField("perk_staminup", 1);
@@ -176,7 +183,7 @@ namespace INF3
                     break;
                 case Perk.DeadShot:
                     player.SetField("perk_deadshot", 1);
-                    player.SetField("recoil", 0);
+                    PerkFunction.DeadShotThink(player);
                     player.SetPerk("specialty_reducedsway", true, false);
                     player.SetPerk("specialty_bulletaccuracy", true, false);
                     break;

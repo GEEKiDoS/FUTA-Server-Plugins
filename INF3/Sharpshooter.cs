@@ -8,9 +8,9 @@ namespace INF3
 {
     public class Sharpshooter : BaseScript
     {
-        private Weapon _currentWeapon;
-        private Weapon _mulekickWeapon;
-        private Random _rng = new Random();
+        public static Weapon _currentWeapon;
+        public static Weapon _mulekickWeapon;
+
         private HudElem _cycleTimer;
         private int _cycleRemaining = 30;
 
@@ -59,7 +59,7 @@ namespace INF3
 
                 if (_cycleRemaining == 0)
                 {
-                    _cycleRemaining = _rng.Next(30, 61);
+                    _cycleRemaining = Utility.rng.Next(30, 61);
 
                     UpdateWeapon();
                 }
@@ -93,11 +93,17 @@ namespace INF3
                         player.GiveWeapon(_mulekickWeapon.Code);
                         player.Call("givemaxammo", _mulekickWeapon.Code);
                     }
-
-                    player.AfterDelay(100, entity =>
+                    player.AfterDelay(100, ent =>
                     {
-                        entity.SwitchToWeaponImmediate(_currentWeapon.Code);
-                        entity.Call("iprintlnbold", _currentWeapon.Name);
+                        player.GiveWeapon("trophy_mp");
+                        player.GiveWeapon("claymore_mp");
+                        player.Call("givemaxammo", "trophy_mp");
+                        player.Call("givemaxammo", "claymore_mp");
+                    });
+                    player.AfterDelay(100, ent =>
+                    {
+                        ent.SwitchToWeaponImmediate(_currentWeapon.Code);
+                        ent.Call("iprintlnbold", _currentWeapon.Name);
                     });
 
                     player.GamblerText("Weapon Cycled", new Vector3(1, 1, 1), new Vector3(0.3f, 0.3f, 0.9f), 1, 0.85f);

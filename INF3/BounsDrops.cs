@@ -8,5 +8,13 @@ namespace INF3
 {
     public class BounsDrops : BaseScript
     {
+        public enum Bouns
+        {
+            DoublePoints,
+            InstaKill,
+            Kaboom,
+            FireSale,
+            ZombieBlood,
+        }
     }
 }

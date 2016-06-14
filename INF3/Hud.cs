@@ -17,30 +17,50 @@ namespace INF3
             {
                 if (player.GetTeam() == "allies")
                 {
-                    hud.SetText("^3$: ^7" + player.GetField<int>("aiz_cash"));
+                    hud.SetText("^3$ ^7" + player.GetField<int>("aiz_cash"));
                 }
-                return player.GetTeam() == "allies";
+                else
+                {
+                    hud.SetText("");
+                }
+                return player.IsPlayer;
             });
         }
 
         public static void CreatePointHud(this Entity player)
         {
-            HudElem hud = HudElem.CreateFontString(player, "default", 0.7f);
+            HudElem hud = HudElem.CreateFontString(player, "default", 1f);
             hud.SetPoint("right", "right", -50, 120);
             hud.HideWhenInMenu = true;
             player.OnInterval(100, delegate (Entity ent)
             {
                 if (player.GetTeam() == "allies")
                 {
-                    hud.SetText("^5Points: ^7" + player.GetField<int>("aiz_point"));
+                    hud.SetText("^5Bonus Points ^7" + player.GetField<int>("aiz_point"));
                 }
-                return player.GetTeam() == "allies";
+                else
+                {
+                    hud.SetText("");
+                }
+                return player.IsPlayer;
             });
         }
 
-        public static HudElem GamblerText(this Entity player, string text, Vector3 color, Vector3 glowColor, float intensity, float glowIntensity)
+        public static void GamblerText(this Entity player, string text, Vector3 color, Vector3 glowColor, float intensity, float glowIntensity)
         {
-            var hud = HudElem.CreateFontString(player, "hudbig", 2);
+            HudElem hud;
+
+            if (!player.HasField("gamblerhud"))
+            {
+                player.SetField("gamblerhud", new Parameter(HudElem.NewClientHudElem(player)));
+            }
+            hud = player.GetField<HudElem>("gamblerhud");
+            if (hud != null)
+            {
+                hud.Call("destroy");
+            }
+
+            hud = HudElem.CreateFontString(player, "hudbig", 2);
             hud.SetPoint("CENTERMIDDLE", "CENTERMIDDLE", 0, 0);
             hud.SetText(text);
             hud.Color = color;
@@ -67,23 +87,21 @@ namespace INF3
                 hud.Call("FadeOverTime", 0.25f);
                 hud.Alpha = 0;
             });
-
-            return hud;
         }
 
-        public static void WelcomeMessage(this Entity player, string[] messages, Vector3 color, Vector3 glowColor, float intensity, float glowIntensity)
+        public static void WelcomeMessage(this Entity player, List<string> messages, Vector3 color, Vector3 glowColor, float intensity, float glowIntensity)
         {
             var list = new List<HudElem>();
 
-            for (int i = 0; i < messages.Length; i++)
+            foreach (var item in messages)
             {
-                player.AfterDelay(i * 500, e =>
+                player.AfterDelay((messages.IndexOf(item) + 1) * 500, e =>
                 {
                     var hud = HudElem.CreateFontString(player, "objective", 1.5f);
-                    hud.SetPoint("TOPMIDDLE", "TOPMIDDLE", 0, 45 + i);
+                    hud.SetPoint("TOPMIDDLE", "TOPMIDDLE", 0, 45 + messages.IndexOf(item) * 15);
                     hud.FontScale = 6;
                     hud.Color = color;
-                    hud.SetText(messages[i]);
+                    hud.SetText(item);
                     hud.Alpha = 0;
                     hud.GlowColor = glowColor;
                     hud.GlowAlpha = glowIntensity;
@@ -95,19 +113,19 @@ namespace INF3
                     list.Add(hud);
                 });
             }
-            player.AfterDelay(messages.Length * 500 + 4000, e =>
+            player.AfterDelay(messages.Count * 500 + 4000, e =>
             {
-                for (int i = 0; i < messages.Length; i++)
+                foreach (var item in list)
                 {
-                    player.AfterDelay(i * 500, en =>
+                    player.AfterDelay((list.IndexOf(item) + 1) * 500, en =>
                     {
-                        list[i].ChangeFontScaleOverTime(0.2f, 4.5f);
-                        list[i].Call("fadeovertime", 0.2f);
-                        list[i].Alpha = 0;
+                        item.ChangeFontScaleOverTime(0.2f, 4.5f);
+                        item.Call("fadeovertime", 0.2f);
+                        item.Alpha = 0;
                     });
                 }
             });
-            player.AfterDelay(messages.Length * 1000 + 400, ent =>
+            player.AfterDelay(60000, e =>
             {
                 foreach (var item in list)
                 {
@@ -144,7 +162,7 @@ namespace INF3
             hudshader.X = 0;
             hudshader.Y = 0;
             hudshader.Foreground = true;
-            hudshader.SetShader(shader, 30, 30);
+            hudshader.SetShader(shader, 25, 25);
             hudshader.Alpha = 1;
 
             player.AfterDelay(300, e =>
@@ -164,14 +182,173 @@ namespace INF3
                 hudshader.Call("scaleovertime", 1, 25, 25);
                 hudshader.Call("moveovertime", 1);
                 hudshader.X = -410 + MultiplyTimes;
-                hudshader.Y = -187;
+                hudshader.Y = 160;
             });
             player.AfterDelay(4700, e =>
             {
                 hudtext.Call("destroy");
+
             });
 
             return hudshader;
+        }
+
+        public static HudElem CreateRandomPerkHud(this Entity player)
+        {
+            var hudshader = HudElem.NewClientHudElem(player);
+            hudshader.AlignX = "center";
+            hudshader.VertAlign = "middle";
+            hudshader.AlignY = "middle";
+            hudshader.HorzAlign = "center";
+            hudshader.X = 0;
+            hudshader.Y = 0;
+            hudshader.Foreground = true;
+            hudshader.Alpha = 1;
+
+            return hudshader;
+        }
+
+        public static void Credits(this Entity player)
+        {
+            HudElem credits = HudElem.CreateFontString(player, "hudbig", 1.0f);
+            credits.SetPoint("CENTER", "BOTTOM", 0, -70);
+            credits.Call("settext", "Project Cirno (INF3)");
+            credits.Alpha = 0f;
+            credits.SetField("glowcolor", new Vector3(1f, 0.5f, 1f));
+            credits.GlowAlpha = 1f;
+
+            HudElem credits2 = HudElem.CreateFontString(player, "hudbig", 0.6f);
+            credits2.SetPoint("CENTER", "BOTTOM", 0, -90);
+            credits2.Call("settext", "Vesion 0.1 Dev. Code in: https://github.com/A2ON");
+            credits2.Alpha = 0f;
+            credits2.SetField("glowcolor", new Vector3(1f, 0.5f, 1f));
+            credits2.GlowAlpha = 1f;
+
+            player.Call("notifyonplayercommand", "tab", "+scores");
+            player.OnNotify("tab", entity =>
+            {
+                credits.Alpha = 1f;
+                credits2.Alpha = 1f;
+            });
+
+            player.Call("notifyonplayercommand", "-tab", "-scores");
+            player.OnNotify("-tab", entity =>
+            {
+                credits.Alpha = 0f;
+                credits2.Alpha = 0f;
+            });
+        }
+
+        public static void TextPopup(this Entity player, string text)
+        {
+            HudElem hud;
+
+            if (!player.HasField("textpopup"))
+            {
+                player.SetField("textpopup", new Parameter(HudElem.NewClientHudElem(player)));
+            }
+            hud = player.GetField<HudElem>("textpopup");
+            if (hud != null)
+            {
+                hud.Call("destroy");
+            }
+
+            hud = HudElem.CreateFontString(player, "hudbig", 0.8f);
+            hud.SetPoint("BOTTOMCENTER", "BOTTOMCENTER", 0, -65);
+            hud.SetText(text);
+            hud.Alpha = 0.85f;
+            hud.GlowColor = new Vector3(0.3f, 0.9f, 0.9f);
+            hud.GlowAlpha = 0.55f;
+            hud.Call("SetPulseFX", 100, 2100, 1000);
+            hud.ChangeFontScaleOverTime(0.1f, 0.75f);
+            player.AfterDelay(100, e =>
+            {
+                hud.ChangeFontScaleOverTime(0.1f, 0.65f);
+            });
+        }
+
+        public static void TextPopup2(this Entity player, string text)
+        {
+            HudElem hud;
+
+            if (!player.HasField("textpopup2"))
+            {
+                player.SetField("textpopup2", new Parameter(HudElem.NewClientHudElem(player)));
+            }
+            hud = player.GetField<HudElem>("textpopup2");
+            if (hud != null)
+            {
+                hud.Call("destroy");
+            }
+
+            hud = HudElem.CreateFontString(player, "hudbig", 0.8f);
+            hud.SetPoint("BOTTOMCENTER", "BOTTOMCENTER", 0, -105);
+            hud.SetText(text);
+            hud.Alpha = 0.85f;
+            hud.GlowColor = new Vector3(0.3f, 0.9f, 0.9f);
+            hud.GlowAlpha = 0.55f;
+            hud.Call("SetPulseFX", 100, 3000, 1000);
+            hud.ChangeFontScaleOverTime(0.1f, 0.75f);
+            player.AfterDelay(100, e =>
+            {
+                hud.ChangeFontScaleOverTime(0.1f, 0.65f);
+            });
+        }
+
+        private static void CreateRankHud(this Entity player)
+        {
+            var hud = HudElem.CreateFontString(player, "hudbig", 1);
+            hud.SetPoint("BOTTOMCENTER", "BOTTOMCENTER", 0, -80);
+            hud.Alpha = 0;
+            hud.Color = new Vector3(0.5f, 0.5f, 0.5f);
+
+            player.SetField("scorepopup", new Parameter(hud));
+        }
+
+        public static void ScorePopup(this Entity player, int amount, Vector3 hudcolor, float glowalpha)
+        {
+            if (amount == 0)
+            {
+                return;
+            }
+            if (player.HasField("scorepopup"))
+            {
+                var temphud = player.GetField<HudElem>("scorepopup");
+                if (temphud != null)
+                {
+                    temphud.Call("destroy");
+                }
+            }
+
+            player.CreateRankHud();
+
+            player.SetField("xpUpdateTotal", player.GetField<int>("xpUpdateTotal") + amount);
+
+            var hud = player.GetField<HudElem>("scorepopup");
+
+            if (player.GetField<int>("xpUpdateTotal") < 0)
+            {
+                hud.Color = new Vector3(25.5f, 25.5f, 3.6f);
+                hud.GlowColor = new Vector3(0.9f, 0.3f, 0.3f);
+                hud.GlowAlpha = 0.55f;
+            }
+            else
+            {
+                hud.Color = new Vector3(25.5f, 25.5f, 3.6f);
+                hud.GlowColor = new Vector3(0.3f, 0.9f, 0.3f);
+                hud.GlowAlpha = 0.55f;
+            }
+
+            hud.SetText(player.GetField<int>("xpUpdateTotal").ToString());
+            hud.Alpha = 1;
+            hud.Call("SetPulseFX", 100, 3000, 1000);
+            player.AfterDelay(3000, e =>
+            {
+                if (hud != null)
+                {
+                    player.SetField("xpUpdateTotal", 0);
+                }
+            });
         }
     }
 }
