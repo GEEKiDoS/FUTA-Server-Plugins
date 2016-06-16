@@ -52,7 +52,7 @@
     <Compile Include="Hud.cs" />
     <Compile Include="MapEdit.cs" />
     <Compile Include="PerkFunction.cs" />
-    <Compile Include="Perks.cs" />
+    <Compile Include="PerkCola.cs" />
     <Compile Include="Sharpshooter.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Sound.cs" />

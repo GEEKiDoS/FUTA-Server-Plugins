@@ -24,14 +24,14 @@ namespace INF3
 
         public override void OnPlayerDamage(Entity player, Entity inflictor, Entity attacker, int damage, int dFlags, string mod, string weapon, Vector3 point, Vector3 dir, string hitLoc)
         {
-            if (attacker == null || !attacker.IsPlayer)
+            if(attacker == null || !attacker.IsPlayer || attacker.GetTeam() == player.GetTeam())
                 return;
 
             if (attacker.GetTeam() == "allies")
             {
                 if (attacker.GetField<int>("perk_phd") == 1 && mod == "MOD_MELEE")
                 {
-                    switch (Utility.rng.Next(2))
+                    switch (Utility.Rng.Next(2))
                     {
                         case 0:
                             attacker.Health = 1000;
@@ -41,7 +41,7 @@ namespace INF3
                             });
                             AfterDelay(100, () =>
                             {
-                                attacker.Call("givemaxhealth");
+                                attacker.Health = attacker.GetField<int>("maxhealth");
                             });
                             break;
                     }
@@ -49,6 +49,11 @@ namespace INF3
                 if (attacker.GetField<int>("perk_deadshot") == 1 && hitLoc.ToLower().Contains("head"))
                 {
                     player.Health = 3;
+                }
+                if (attacker.GetField<int>("perk_widow") == 1 && mod != "MOD_MELEE")
+                {
+                    attacker.SetField("perk_widow", 2);
+                    WidowsWineThink(attacker, player.Origin);
                 }
             }
             else if (attacker.GetTeam() == "axis")
@@ -62,11 +67,6 @@ namespace INF3
                     player.SetField("perk_cherry", 2);
                     player.Health = player.GetField<int>("maxhealth");
                     ElectricCherryThink(player);
-                }
-                if (attacker.GetField<int>("perk_widow") == 1 && mod != "MOD_MELEE" && mod != "MOD_EXPLOSIVE")
-                {
-                    attacker.SetField("perk_widow", 2);
-                    WidowsWineThink(attacker, player.Origin);
                 }
             }
         }

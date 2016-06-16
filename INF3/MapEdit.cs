@@ -16,6 +16,9 @@ namespace INF3
         private int curObjID;
         private static List<Entity> usables = new List<Entity>();
 
+        private static List<int> _perkboxs = new List<int>();
+        private static bool _haspowerbox = false;
+
         public MapEdit()
         {
             var _e = Call<Entity>("getent", "care_package", "targetname");
@@ -32,6 +35,8 @@ namespace INF3
                 player.SetField("usingtelepot", 0);
 
                 UsableHud(player);
+                PerkHud(player);
+
                 TrampolineThink(player);
             };
 
@@ -186,7 +191,7 @@ namespace INF3
             return "";
         }
 
-        private string PerkText(Entity player, Perks.Perk perk)
+        private string PerkText(Entity player, PerkCola perk)
         {
             if (player.GetTeam() == "allies")
             {
@@ -194,7 +199,7 @@ namespace INF3
                 {
                     return "Requires Electricity";
                 }
-                return perk.PerkBoxHintString();
+                return PerkCola.PerkBoxHintString(perk);
             }
             return "";
         }
@@ -271,7 +276,7 @@ namespace INF3
                                 message.SetText(AirstrikeText(player));
                                 break;
                             case "perk":
-                                message.SetText(PerkText(player, ent.GetField<Perks.Perk>("perk")));
+                                message.SetText(PerkText(player, ent.GetField<PerkCola>("perk")));
                                 break;
                             case "randomperk":
                                 message.SetText(RandomPerkText(ent, player));
@@ -287,6 +292,53 @@ namespace INF3
                 catch (Exception)
                 {
                     message.SetText("");
+                }
+
+                return true;
+            });
+        }
+
+        #endregion
+
+        #region Perk-a-Cola Hud
+
+        private void PerkHud(Entity player)
+        {
+            HudElem hud = HudElem.NewClientHudElem(player);
+            hud.Alpha = 0f;
+
+            OnInterval(100, () =>
+            {
+                try
+                {
+                    var flag = false;
+                    foreach (var ent in usables)
+                    {
+                        if (player.Origin.DistanceTo(ent.Origin) >= ent.GetField<int>("range"))
+                        {
+                            continue;
+                        }
+                        if (ent.GetField<string>("usabletype") == "perk")
+                        {
+                            var perk = ent.GetField<PerkCola>("perk");
+                            hud.SetShader(perk.PerkIcon, 15, 15);
+                            hud.X = ent.Origin.X;
+                            hud.Y = ent.Origin.Y;
+                            hud.Z = ent.Origin.Z + 50f;
+                            hud.Call("setwaypoint", ent.Origin);
+                            hud.Alpha = 1;
+                        }
+
+                        flag = true;
+                    }
+                    if (!flag)
+                    {
+                        hud.Alpha = 0f;
+                    }
+                }
+                catch (Exception)
+                {
+                    hud.Alpha = 0f;
                 }
 
                 return true;
@@ -348,7 +400,7 @@ namespace INF3
                                 case "perk":
                                     if (Call<int>("getdvarint", "scr_aiz_power") == 1)
                                     {
-                                        BoxFunction.UsePerk(player, ent.GetField<Perks.Perk>("perk"));
+                                        BoxFunction.UsePerk(player, ent.GetField<PerkCola>("perk"));
                                     }
                                     break;
                                 case "randomperk":
@@ -401,7 +453,7 @@ namespace INF3
             var files = Directory.GetFiles("scripts\\inf3-maps\\" + Utility.MapName + "\\");
             if (files.Length > 0)
             {
-                _currentfile = files[Utility.rng.Next(files.Length)];
+                _currentfile = files[Utility.Rng.Next(files.Length)];
                 if (File.Exists(_currentfile))
                 {
                     LoadMapEdit();
@@ -698,10 +750,16 @@ namespace INF3
 
         public void CreatePower(Vector3 origin, Vector3 angles)
         {
+            if (_haspowerbox)
+            {
+                return;
+            }
+            _haspowerbox = true;
+
             Entity ent = SpawnCrate(origin, angles);
             ent.SetField("player", "");
-            var obj = CreateObjective(ent, "cardicon_bulb");
-            var shader = CreateShader(ent, "cardicon_bulb");
+            var obj = CreateObjective(ent, "cardicon_bulb", "allies");
+            var shader = CreateShader(ent, "cardicon_bulb", "allies");
             Call("setdvar", "scr_aiz_power", 0);
             OnInterval(100, () =>
             {
@@ -776,12 +834,17 @@ namespace INF3
             MakeUsable(ent, "airstrike", 50);
         }
 
-        public void CreatePerk(Vector3 origin, Vector3 angles, Perks.Perk perk)
+        public void CreatePerk(Vector3 origin, Vector3 angles, PerkCola perk)
         {
+            if (_perkboxs.Contains(perk.Type))
+            {
+                return;
+            }
+            _perkboxs.Add(perk.Type);
+
             Entity ent = SpawnCrate(origin, angles);
             ent.SetField("perk", new Parameter(perk));
-            CreateObjective(ent, perk.GetPerkIcon(), "allies");
-            CreateShader(ent, perk.GetPerkIcon(), "allies");
+            CreateObjective(ent, perk.PerkIcon, "allies");
 
             MakeUsable(ent, "perk", 50);
         }
@@ -968,7 +1031,7 @@ namespace INF3
                                     strArray = strArray[1].Split(new char[] { ';' });
                                     if (strArray.Length >= 3)
                                     {
-                                        CreatePerk(ParseVector3(strArray[0]) + new Vector3(0, 0, 5), new Vector3(0, ParseVector3(strArray[1]).Y, 0), (Perks.Perk)Convert.ToInt32(strArray[2]));
+                                        CreatePerk(ParseVector3(strArray[0]) + new Vector3(0, 0, 5), new Vector3(0, ParseVector3(strArray[1]).Y, 0), new PerkCola(Convert.ToInt32(strArray[2])));
                                     }
                                     continue;
                                 case "randomperk":

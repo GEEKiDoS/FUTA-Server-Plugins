@@ -93,6 +93,7 @@ namespace INF3
                 {
                     if (player.GetTeam() == "axis" && player.GetField<int>("rtd_isis") == 1 && player.CurrentWeapon == "c4death_mp")
                     {
+                        player.SetField("rtd_isis", 0);
                         AfterDelay(1000, () => player.SelfExpoledISIS());
                     }
                 });
@@ -174,9 +175,9 @@ namespace INF3
                     break;
                 case RollType.Spas:
                     player.TakeWeapon(player.CurrentWeapon);
-                    player.GiveWeapon("iw5_spas_mp");
-                    player.Call("setweaponammostock", "iw5_spas_mp", 0);
-                    player.AfterDelay(300, e => player.SwitchToWeaponImmediate("iw5_spas_mp"));
+                    player.GiveWeapon("iw5_spas12_mp");
+                    player.Call("setweaponammostock", "iw5_spas12_mp", 0);
+                    player.AfterDelay(300, e => player.SwitchToWeaponImmediate("iw5_spas12_mp"));
                     break;
                 case RollType.Turtle:
                     player.SetField("speed", 0.7f);
@@ -195,7 +196,7 @@ namespace INF3
                     break;
                 case RollType.KingOfJuggernaut:
                     player.SetField("rtd_king", 1);
-                    player.Call("attach", "prop_flag_neutral", "tag_shield_back", 1);
+                    player.Call("attach", GetCarryFlag(Utility.MapName), "j_spine4", 1);
                     player.Call("setmodel", "mp_fullbody_opforce_juggernaut");
                     player.Call("setviewmodel", "viewhands_juggernaut_opforce");
                     player.SetField("maxhealth", player.GetField<int>("maxhealth") * 10);
@@ -301,7 +302,7 @@ namespace INF3
             for (int i = 0; i < Rolls.Count; i++)
             {
                 pair2 = Rolls[i];
-                var num = pair2.Key + Utility.rng.Next(0, maxvalue);
+                var num = pair2.Key + Utility.Rng.Next(0, maxvalue);
                 list.Add(new KeyValuePair<int, int>(i, num));
             }
             list.Sort((kvp1, kvp2) => (kvp2.Value - kvp1.Value));

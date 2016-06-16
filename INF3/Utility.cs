@@ -10,7 +10,7 @@ namespace INF3
 {
     public static class Utility
     {
-        public static Random rng = new Random();
+        public readonly static Random Rng = new Random();
 
         public static string MapName
         {

@@ -87,7 +87,7 @@ namespace INF3
                                 default:
                                     break;
                             }
-                            if (Utility.rng.Next(100) < hitchance)
+                            if (Utility.Rng.Next(100) < hitchance)
                             {
                                 door.SetField("hp", door.GetField<int>("hp") - 1);
                                 player.Call("iprintlnbold", "HIT: " + door.GetField<int>("hp") + "/" + door.GetField<int>("maxhp"));
@@ -226,15 +226,15 @@ namespace INF3
             if (!player.IsAlive) return;
             if (player.GetTeam() == "allies")
             {
-                if (player.GetCash() >= 300)
+                if (player.GetCash() >= 100)
                 {
-                    player.PayCash(300);
+                    player.PayCash(100);
                     player.GiveAmmo();
                     player.Call("playlocalsound", "ammo_crate_use");
                 }
                 else
                 {
-                    player.Call("iprintln", "^1Not enough cash for Ammo. Need ^2$^3300");
+                    player.Call("iprintln", "^1Not enough cash for Ammo. Need ^2$^3100");
                 }
             }
         }
@@ -285,24 +285,29 @@ namespace INF3
             }
         }
 
-        public static void UsePerk(Entity player, Perks.Perk perk)
+        public static void UsePerk(Entity player, PerkCola perk)
         {
             if (!player.IsAlive) return;
             if (player.GetTeam() == "allies")
             {
-                if (player.GetCash() >= perk.GetPerkPay())
+                if (player.GetCash() >= perk.Pay)
                 {
-                    if (player.HasPerk(perk))
+                    if (player.GetField<int>("aiz_perks")>=5)
                     {
-                        player.Call("iprintln", "^1You already have " + perk.GetPerkFullName() + ".");
+                        player.Call("iprintln", "^1You already have 5 Perk-a-Cola.");
                         return;
                     }
-                    player.PayCash(perk.GetPerkPay());
-                    player.GivePerk(perk);
+                    if (PerkCola.HasPerkCola(player,perk))
+                    {
+                        player.Call("iprintln", "^1You already have " + perk.FullName + ".");
+                        return;
+                    }
+                    player.PayCash(perk.Pay);
+                    PerkCola.GivePerkCola(player, perk);
                 }
                 else
                 {
-                    player.Call("iprintln", "^1Not enough cash for " + perk.GetPerkFullName() + ". Need ^2$^3" + perk.GetPerkPay());
+                    player.Call("iprintln", "^1Not enough cash for " + perk.FullName + ". Need ^2$^3" + perk.Pay);
                 }
             }
         }
@@ -314,6 +319,11 @@ namespace INF3
             {
                 if (player.GetPoint() >= 10)
                 {
+                    if (player.GetField<int>("aiz_perks") >= 5)
+                    {
+                        player.Call("iprintln", "^1You already have 5 Perk-a-Cola.");
+                        return;
+                    }
                     player.PayPoint(10);
                     player.RandomPerk(ent);
                 }
@@ -370,7 +380,7 @@ namespace INF3
             player.AfterDelay(9000, e => player.Call("playlocalsound", "ui_mp_nukebomb_timer"));
             player.AfterDelay(10000, e =>
             {
-                switch (Utility.rng.Next(19))
+                switch (Utility.Rng.Next(19))
                 {
                     case 0:
                         player.PrintGambleInfo("You win nothing.", GambleType.Bad);
@@ -424,7 +434,7 @@ namespace INF3
                         player.AfterDelay(5000, ex => player.Call("iprintlnbold", "^11"));
                         player.AfterDelay(6000, ex =>
                         {
-                            switch (Utility.rng.Next(2))
+                            switch (Utility.Rng.Next(2))
                             {
                                 case 0:
                                     player.PrintGambleInfo("You live!", GambleType.Good);
@@ -538,12 +548,12 @@ namespace INF3
 
         private static void RandomPerk(this Entity player, Entity ent)
         {
-            var perk = (Perks.Perk)Utility.rng.Next(Enum.GetNames(typeof(Perks.Perk)).GetLength(0));
-            while (player.HasPerk(perk))
+            var perk = PerkCola.RandomPerk();
+            while (PerkCola.HasPerkCola(player,perk))
             {
-                perk = (Perks.Perk)Utility.rng.Next(Enum.GetNames(typeof(Perks.Perk)).GetLength(0));
+                perk = PerkCola.RandomPerk();
             }
-            player.GivePerk(perk);
+            PerkCola.GivePerkCola(player, perk);
         }
     }
 }

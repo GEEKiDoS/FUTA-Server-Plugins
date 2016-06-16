@@ -115,6 +115,8 @@ namespace INF3
 
         public void OnSpawned(Entity player)
         {
+            player.Call("freezecontrols", false);
+
             player.SetField("aiz_cash", 500);
             player.SetField("aiz_point", 0);
 
@@ -140,7 +142,7 @@ namespace INF3
 
             if (player.GetTeam() == "allies")
             {
-                player.ResetPerks();
+                PerkCola.ResetPerks(player);
 
                 player.SetField("incantation", 0);
 
@@ -374,7 +376,7 @@ namespace INF3
 
         public override void OnPlayerKilled(Entity player, Entity inflictor, Entity attacker, int damage, string mod, string weapon, Vector3 dir, string hitLoc)
         {
-            player.ResetPerks();
+            PerkCola.ResetPerks(player);
 
             if (attacker == null || !attacker.IsPlayer || attacker.GetTeam() == player.GetTeam())
                 return;

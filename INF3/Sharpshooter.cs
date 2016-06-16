@@ -59,7 +59,7 @@ namespace INF3
 
                 if (_cycleRemaining == 0)
                 {
-                    _cycleRemaining = Utility.rng.Next(30, 61);
+                    _cycleRemaining = Utility.Rng.Next(30, 61);
 
                     UpdateWeapon();
                 }
