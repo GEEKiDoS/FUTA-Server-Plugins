@@ -143,7 +143,7 @@ namespace INF3
                 creating = false;
                 end = player.Origin;
                 player.Call("iprintlnbold", "paydoor end set: " + end);
-                File.AppendAllText(_currentPath, Environment.NewLine + "door: " + start + ";" + end + ";" + angles + ";" + args[0] + ";" + args[1] + ";" + args[2] + ";" + args[3]);
+                File.AppendAllText(_currentPath, Environment.NewLine + "paydoor: " + end + ";" + start + ";" + angles + ";" + args[0] + ";" + args[1] + ";" + args[2] + ";" + args[3]);
                 return;
             }
             if (message == "!wall" && !creating)
@@ -175,7 +175,7 @@ namespace INF3
                 creating = false;
                 end = player.Origin;
                 player.Call("iprintlnbold", "invwall end set: " + end);
-                File.AppendAllText(_currentPath, Environment.NewLine + "wall: " + start + ";" + end);
+                File.AppendAllText(_currentPath, Environment.NewLine + "invwall: " + start + ";" + end);
                 return;
             }
             if (message == "!floor" && !creating)
@@ -300,6 +300,9 @@ namespace INF3
                         break;
                     case "widow":
                         perk = 9;
+                        break;
+                    case "vulture":
+                        perk = 10;
                         break;
                 }
                 player.Call("iprintlnbold", split[0] + " set: " + player.Origin);

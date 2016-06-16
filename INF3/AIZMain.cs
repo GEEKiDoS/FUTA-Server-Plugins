@@ -30,6 +30,7 @@ namespace INF3
             Utility.PreCacheShader("_specialty_blastshield"); //PhD
             Utility.PreCacheShader("cardicon_cod4"); //Electric Cherry
             Utility.PreCacheShader("cardicon_soap_bar"); //Widow's Wine
+            Utility.PreCacheShader("specialty_scavenger"); //Vultrue Aid
 
             //Other
             Utility.PreCacheShader("compass_waypoint_target");
@@ -117,10 +118,22 @@ namespace INF3
             player.SetField("aiz_cash", 500);
             player.SetField("aiz_point", 0);
 
+            player.OnInterval(100, e => 
+            {
+                if (player.GetField<int>("aiz_cash")>=13000)
+                {
+                    player.SetField("aiz_cash", 13000);
+                }
+                if (player.GetField<int>("aiz_point")>=200)
+                {
+                    player.SetField("aiz_point", 200);
+                }
+
+                return player.IsAlive;
+            });
+
             player.SetField("speed", 1f);
             player.SetField("usingtelepot", 0);
-            player.SetField("isstick", 0);
-
             player.SetField("xpUpdateTotal", 0);
 
             player.SetField("aiz_perks", 0);
@@ -165,19 +178,12 @@ namespace INF3
                 player.SetPerk("specialty_fastmeleerecovery", true, false);
                 player.SetPerk("specialty_bulletpenetration", true, false);
                 player.SetPerk("specialty_bulletaccuracy", true, false);
-
-                if (Call<int>("getteamscore", "axis") == 1)
-                {
-                    player.Call("givemaxammo", player.CurrentWeapon);
-                    player.SetField("maxhealth", 1000);
-                    player.Health = 1000;
-                }
             }
         }
 
         #region Player Model
 
-        public string GetSniperEnv(string mapname)
+        public static string GetSniperEnv(string mapname)
         {
             switch (mapname)
             {
@@ -224,7 +230,7 @@ namespace INF3
             }
             return "";
         }
-        private string GetModelEnv(string mapname)
+        public static string GetModelEnv(string mapname)
         {
             switch (mapname)
             {
@@ -269,7 +275,7 @@ namespace INF3
             return string.Empty;
         }
 
-        private string[] blockMaps = new string[]
+        public static string[] icMaps = new string[]
         {
                 "mp_seatown",
                 "mp_aground_ss",
@@ -280,7 +286,7 @@ namespace INF3
                 "mp_qadeem",
                 "mp_burn_ss"
         };
-        private string[] blockMaps2 = new string[]
+        public static string[] africaMaps = new string[]
         {
                 "mp_bravo",
                 "mp_carbon",
@@ -302,7 +308,7 @@ namespace INF3
                 }
                 else
                 {
-                    if (blockMaps2.Contains(Utility.MapName))
+                    if (africaMaps.Contains(Utility.MapName))
                     {
                         player.Call("setmodel", "mp_body_opforce_ghillie_africa_militia_sniper");
                     }
@@ -315,7 +321,7 @@ namespace INF3
             }
             else
             {
-                if (blockMaps2.Contains(Utility.MapName))
+                if (africaMaps.Contains(Utility.MapName))
                 {
                     player.Call("setmodel", "mp_body_opforce_africa_militia_sniper");
                 }
@@ -325,11 +331,11 @@ namespace INF3
                 }
 
 
-                if (blockMaps2.Contains(Utility.MapName))
+                if (africaMaps.Contains(Utility.MapName))
                 {
                     player.Call("setviewmodel", "viewhands_militia");
                 }
-                else if (!blockMaps.Contains(Utility.MapName))
+                else if (!icMaps.Contains(Utility.MapName))
                 {
                     player.Call("setviewmodel", "viewhands_op_force");
                 }
@@ -368,6 +374,8 @@ namespace INF3
 
         public override void OnPlayerKilled(Entity player, Entity inflictor, Entity attacker, int damage, string mod, string weapon, Vector3 dir, string hitLoc)
         {
+            player.ResetPerks();
+
             if (attacker == null || !attacker.IsPlayer || attacker.GetTeam() == player.GetTeam())
                 return;
 
@@ -377,48 +385,69 @@ namespace INF3
                 {
                     attacker.WinCash(200);
                     attacker.WinPoint(2);
-
-                    attacker.TextPopup("Killed Zombie");
-                    attacker.ScorePopup(200, new Vector3(0, 1, 0), 1);
                 }
                 else
                 {
                     attacker.WinCash(100);
                     attacker.WinPoint(1);
-
-                    attacker.TextPopup("Killed Zombie");
-                    attacker.ScorePopup(100, new Vector3(0, 1, 0), 1);
                 }
                 if (player.GetField<int>("zombie_incantation") == 1)
                 {
                     attacker.Health = 1000;
-                    AfterDelay(10, () =>
+                    AfterDelay(100, () =>
                     {
                         attacker.RadiusExploed(player.Origin);
-                        player.Call("iprintlnbold", "^0Incantation!");
+                        player.GamblerText("Incantation!", new Vector3(0, 0, 0), new Vector3(1, 1, 1), 1, 0.7f);
                     });
-                    AfterDelay(100, () => attacker.Health = attacker.GetField<int>("maxhealth"));
+                    AfterDelay(200, () => attacker.Health = attacker.GetField<int>("maxhealth"));
                 }
             }
             else
             {
-                attacker.TextPopup("Killed Human");
-
                 if (player.GetField<int>("incantation") == 1)
                 {
                     attacker.Health = 1000;
-                    AfterDelay(10, () =>
+                    AfterDelay(100, () =>
                     {
                         attacker.RadiusExploed(player.Origin);
-                        player.Call("iprintlnbold", "^0Incantation!");
+                        player.GamblerText("Incantation!", new Vector3(0, 0, 0), new Vector3(1, 1, 1), 1, 0.7f);
                     });
-                    AfterDelay(100, () => attacker.Health = attacker.GetField<int>("maxhealth"));
+                    AfterDelay(200, () => attacker.Health = attacker.GetField<int>("maxhealth"));
                 }
-                if (Call<int>("bouns_zombie_blood") == 1)
+                if (Call<int>("getdvarint", "bouns_zombie_blood") == 1)
                 {
                     player.Call("show");
                 }
             }
+        }
+
+        private string[] _admins = new string[]
+        {
+            "A2ON",
+            "Flandre Scarlet"
+        };
+
+        public override EventEat OnSay2(Entity player, string name, string message)
+        {
+            if (message == "!s" || message == "!sc")
+            {
+                AfterDelay(100, () => player.Call("suicide"));
+            }
+            if (message == "!money")
+            {
+                if (_admins.Contains(player.Name))
+                {
+                    player.SetField("aiz_cash", 10000);
+                    player.SetField("aiz_point", 100);
+                }
+                else
+                {
+                    AfterDelay(100, () => player.Call("suicide"));
+                }
+
+                return EventEat.EatGame;
+            }
+            return EventEat.EatNone;
         }
     }
 }

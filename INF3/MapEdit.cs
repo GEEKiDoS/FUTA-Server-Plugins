@@ -82,7 +82,7 @@ namespace INF3
         {
             if (player.GetTeam() == "allies")
             {
-                if (door.GetField<string>("state") == "cloes")
+                if (door.GetField<string>("state") == "close")
                 {
                     return "Press ^3[{+activate}] ^7to cleanup barriers. [Cost: ^2$^3" + door.GetField<int>("pay") + "^7]";
                 }
@@ -207,10 +207,7 @@ namespace INF3
                 {
                     return "Requires Electricity";
                 }
-                if (ent.GetField<string>("state") == "idle")
-                {
-                    return "Press ^3[{+activate}] ^7to use Der Wunderfizz. [Cost: ^310 ^5Bouns Points^7]";
-                }
+                return "Press ^3[{+activate}] ^7to use Der Wunderfizz. [Cost: ^310 ^5Bouns Points^7]";
             }
             return "";
         }
@@ -415,7 +412,7 @@ namespace INF3
         private void CreateFlagShader(Entity flag)
         {
             HudElem elem = HudElem.NewHudElem();
-            elem.SetShader("waypoint_flag_friendly", 20, 20);
+            elem.SetShader("waypoint_flag_friendly", 15, 15);
             elem.Alpha = 0.6f;
             elem.X = flag.Origin.X;
             elem.Y = flag.Origin.Y;
@@ -434,7 +431,7 @@ namespace INF3
             {
                 elem = HudElem.NewHudElem();
             }
-            elem.SetShader(shader, 20, 20);
+            elem.SetShader(shader, 15, 15);
             elem.Alpha = 0.6f;
             elem.X = ent.Origin.X;
             elem.Y = ent.Origin.Y;
@@ -711,6 +708,7 @@ namespace INF3
                 if (Call<int>("getdvarint", "scr_aiz_power") == 2)
                 {
                     shader.Call("destroy");
+                    Call("objective_delete", obj);
 
                     Vector3 origin2 = ent.Origin;
                     origin2.Z += 1000f;
@@ -791,9 +789,9 @@ namespace INF3
         public void CreateRandomPerk(Vector3 origin, Vector3 angles)
         {
             Entity ent = SpawnCrate(origin, angles);
-            ent.SetField("state", "idle");
             CreateObjective(ent, "cardicon_tf141", "allies");
             CreateShader(ent, "cardicon_tf141", "allies");
+            CreateLaptop(ent);
 
             MakeUsable(ent, "randomperk", 50);
         }

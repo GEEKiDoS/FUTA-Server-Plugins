@@ -55,6 +55,7 @@
     <Compile Include="Perks.cs" />
     <Compile Include="Sharpshooter.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Sound.cs" />
     <Compile Include="TargetSelector.cs" />
     <Compile Include="Tracer.cs" />
     <Compile Include="TurretFunction.cs" />
@@ -62,7 +63,6 @@
     <Compile Include="Weapon.cs" />
     <Compile Include="ZombieRollTheDice.cs" />
   </ItemGroup>
-  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

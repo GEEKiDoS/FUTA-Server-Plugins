@@ -128,18 +128,20 @@ namespace INF3
 
                 player.OnInterval(1000, e =>
                 {
-                    if (player.IsAlive)
+                    var weapon = player.CurrentWeapon;
+
+                    if (weapon.StartsWith("rpg") || weapon.StartsWith("iw5_smaw") || weapon.StartsWith("m320") || weapon.StartsWith("uav") || weapon.StartsWith("stinger") || weapon.StartsWith("javelin") || weapon.StartsWith("gl"))
                     {
-                        var weapon = player.CurrentWeapon;
-
-                        if (weapon.StartsWith("rpg") || weapon.StartsWith("iw5_smaw") || weapon.StartsWith("m320") || weapon.StartsWith("uav") || weapon.StartsWith("stinger") || weapon.StartsWith("javelin") || weapon.StartsWith("gl"))
-                        {
+                        if (player.IsAlive && player.HasField("perk_vultrue") && player.GetField<int>("perk_vultrue") == 1)
                             player.Call("giveMaxAmmo", weapon);
-                        }
-
-                        return true;
                     }
-                    return false;
+
+                    if (player.GetTeam()=="axis")
+                    {
+                        return false;
+                    }
+
+                    return true;
                 });
             }
         }

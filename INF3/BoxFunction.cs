@@ -118,8 +118,6 @@ namespace INF3
                 if (player.GetCash() >= door.GetField<int>("pay"))
                 {
                     player.PayCash(door.GetField<int>("pay"));
-                    player.TextPopup("Cleaned Barriers");
-                    player.ScorePopup(0 - door.GetField<int>("pay"), new Vector3(1, 0, 0), 1);
                     door.Call("moveto", door.GetField<Vector3>("open"), 1);
                     door.AfterDelay(300, ent =>
                     {
@@ -138,8 +136,6 @@ namespace INF3
             if (!player.IsAlive) return;
             if (ent.GetField<string>("state") == "idle")
             {
-                player.TextPopup2("Zipline");
-
                 var start = ent.Origin;
                 ent.SetField("state", "using");
 
@@ -155,7 +151,7 @@ namespace INF3
                     }
                     ent.Call("moveto", start, 1);
                 });
-                ent.AfterDelay(ent.GetField<int>("movetime") * 1000 + 1000, en =>
+                ent.AfterDelay(ent.GetField<int>("movetime") * 1000 + 2000, en =>
                 {
                     ent.SetField("state", "idle");
                     ent.Call("clonebrushmodeltoscriptmodel", MapEdit._airdropCollision);
@@ -171,8 +167,6 @@ namespace INF3
                 if (player.GetCash() >= 500)
                 {
                     player.PayCash(500);
-                    player.TextPopup("Teleporter");
-                    player.ScorePopup(-500, new Vector3(1, 0, 0), 1);
                     player.SetField("usingtelepot", 1);
                     Vector3 start = player.Origin;
                     player.Call("shellshock", "frag_grenade_mp", 3);
@@ -216,9 +210,6 @@ namespace INF3
             {
                 if (player.GetCash() >= 700)
                 {
-                    player.PayCash(700);
-                    player.TextPopup("Activate Electricity");
-                    player.ScorePopup(-700, new Vector3(1, 0, 0), 1);
                     ent.SetField("player", player.Name);
                     Function.SetEntRef(-1);
                     Function.Call("setdvar", "scr_aiz_power", 2);
@@ -238,8 +229,6 @@ namespace INF3
                 if (player.GetCash() >= 300)
                 {
                     player.PayCash(300);
-                    player.TextPopup("Ammo");
-                    player.ScorePopup(-300, new Vector3(1, 0, 0), 1);
                     player.GiveAmmo();
                     player.Call("playlocalsound", "ammo_crate_use");
                 }
@@ -259,8 +248,6 @@ namespace INF3
                 if (player.GetCash() >= 500)
                 {
                     player.PayCash(500);
-                    player.TextPopup("Gamble");
-                    player.ScorePopup(-500, new Vector3(1, 0, 0), 1);
                     ent.SetField("state", "using");
                     Entity laptop = ent.GetField<Entity>("laptop");
                     laptop.Call("moveto", laptop.Origin + new Vector3(0, 0, 30), 2);
@@ -289,8 +276,6 @@ namespace INF3
                 if (player.GetPoint() >= 10)
                 {
                     player.PayPoint(10);
-                    player.TextPopup("Airstrike");
-                    player.ScorePopup(-10, new Vector3(1, 0, 0), 1);
                     player.GiveRandomAirstrike();
                 }
                 else
@@ -307,14 +292,12 @@ namespace INF3
             {
                 if (player.GetCash() >= perk.GetPerkPay())
                 {
-                    if (player.GetField<int>("aiz_perks") >= 4)
+                    if (player.HasPerk(perk))
                     {
-                        player.Call("iprintln", "^1You already have 4 Perk-a-Cola.");
+                        player.Call("iprintln", "^1You already have " + perk.GetPerkFullName() + ".");
                         return;
                     }
                     player.PayCash(perk.GetPerkPay());
-                    player.TextPopup(perk.GetPerkFullName());
-                    player.ScorePopup(0 - perk.GetPerkPay(), new Vector3(1, 0, 0), 1);
                     player.GivePerk(perk);
                 }
                 else
@@ -327,20 +310,11 @@ namespace INF3
         public static void UseRandomPerk(Entity ent, Entity player)
         {
             if (!player.IsAlive) return;
-            if (ent.GetField<string>("state") != "idle") return;
             if (player.GetTeam() == "allies")
             {
                 if (player.GetPoint() >= 10)
                 {
-                    if (player.GetField<int>("aiz_perks") >= 4)
-                    {
-                        player.Call("iprintln", "^1You already have 4 Perk-a-Cola.");
-                        return;
-                    }
                     player.PayPoint(10);
-                    player.TextPopup("Der Wunderfizz");
-                    player.ScorePopup(-10, new Vector3(1, 0, 0), 1);
-                    ent.SetField("state", "using");
                     player.RandomPerk(ent);
                 }
                 else
@@ -564,7 +538,12 @@ namespace INF3
 
         private static void RandomPerk(this Entity player, Entity ent)
         {
-            player.GamblerText("Comming Soon!", new Vector3(1, 1, 1), new Vector3(0.3f, 0.3f, 0.9f), 1, 0.85f);
+            var perk = (Perks.Perk)Utility.rng.Next(Enum.GetNames(typeof(Perks.Perk)).GetLength(0));
+            while (player.HasPerk(perk))
+            {
+                perk = (Perks.Perk)Utility.rng.Next(Enum.GetNames(typeof(Perks.Perk)).GetLength(0));
+            }
+            player.GivePerk(perk);
         }
     }
 }

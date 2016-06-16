@@ -24,7 +24,7 @@ namespace INF3
 
         public override void OnPlayerDamage(Entity player, Entity inflictor, Entity attacker, int damage, int dFlags, string mod, string weapon, Vector3 point, Vector3 dir, string hitLoc)
         {
-            if (attacker == null || !attacker.IsPlayer || (attacker.GetTeam() == player.GetTeam() && attacker != player))
+            if (attacker == null || !attacker.IsPlayer)
                 return;
 
             if (attacker.GetTeam() == "allies")
@@ -34,9 +34,15 @@ namespace INF3
                     switch (Utility.rng.Next(2))
                     {
                         case 0:
-                            Call("playfx", Call<int>("loadfx", "explosions/tanker_explosion"), player.Origin);
-                            player.Call("playsound", "cobra_helicopter_crash");
-                            Call("RadiusDamage", player.Origin, 500, 500, 500, player, "MOD_EXPLOSIVE", "bomb_site_mp");
+                            attacker.Health = 1000;
+                            AfterDelay(100, () =>
+                            {
+                                attacker.RadiusExploed(attacker.Origin);
+                            });
+                            AfterDelay(100, () =>
+                            {
+                                attacker.Call("givemaxhealth");
+                            });
                             break;
                     }
                 }
@@ -44,27 +50,23 @@ namespace INF3
                 {
                     player.Health = 3;
                 }
-                if (attacker.GetField<int>("perk_widow") == 1 && mod != "MOD_MELEE" && mod != "MOD_EXPLOSIVE")
-                {
-                    attacker.SetField("perk_widow", 2);
-                    WidowsWineThink(player);
-                }
             }
             else if (attacker.GetTeam() == "axis")
             {
-                if (player.GetField<int>("perk_phd") == 1 && (mod.Contains("EXPLOSIVE") || mod.Contains("PROJECTILE")))
+                if (player.GetField<int>("perk_phd") == 1 && (mod != "MOD_MELEE" || !mod.Contains("BULLET")))
                 {
                     player.Health = player.GetField<int>("maxhealth");
                 }
-                if (player.GetField<int>("perk_cherry") == 1 && mod == "MOD_MELEE")
+                if (player.GetField<int>("perk_cherry") == 1 && mod.Contains("MELEE"))
                 {
-                    switch (Utility.rng.Next(2))
-                    {
-                        case 0:
-                            player.Health = player.GetField<int>("maxhealth");
-                            ElectricCherryThink(player);
-                            break;
-                    }
+                    player.SetField("perk_cherry", 2);
+                    player.Health = player.GetField<int>("maxhealth");
+                    ElectricCherryThink(player);
+                }
+                if (attacker.GetField<int>("perk_widow") == 1 && mod != "MOD_MELEE" && mod != "MOD_EXPLOSIVE")
+                {
+                    attacker.SetField("perk_widow", 2);
+                    WidowsWineThink(attacker, player.Origin);
                 }
             }
         }
@@ -88,36 +90,15 @@ namespace INF3
             var zombies = GetClosingZombies(player);
             foreach (var zombie in zombies)
             {
-                zombie.Call("shellshock", "concussion_grenade_mp", 3);
-                zombie.Call("finishplayerdamage", zombie, player, 50, 0, 0, "bomb_site_mp", zombie.Origin, "MOD_EXPLOSIVE", 0);
+                zombie.ElectricCherryExploed(player);
             }
+            AfterDelay(3000, () => player.SetField("perk_cherry", 1));
         }
 
-        public static void WidowsWineThink(Entity player)
+        private void WidowsWineThink(Entity player, Vector3 origin)
         {
-            var center = Utility.Spawn("script_origin", player.Origin);
-
-            player.OnInterval(100, e =>
-            {
-                var zombies = GetClosingZombies(center);
-                foreach (var zombie in zombies)
-                {
-                    if (zombie.GetField<int>("isstick") == 0)
-                    {
-                        zombie.Call("shellshock", "concussion_grenade_mp", 3);
-                        zombie.SetField("isstick", 1);
-                        zombie.SetField("speed", 0.3f);
-                    }
-                }
-
-                return center != null && player.IsPlayer && player.IsAlive && player.HasField("perk_widow") && player.GetField<int>("perk_widow") == 2;
-            });
-
-            player.AfterDelay(10000, en =>
-            {
-                player.SetField("perk_widow", 1);
-                center.Call("delete");
-            });
+            Effects.WidowsWineExploed(player, origin);
+            AfterDelay(10000, () => player.SetField("perk_widow", 1));
         }
     }
 }
