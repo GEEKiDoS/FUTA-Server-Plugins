@@ -98,10 +98,10 @@ namespace INF3
                 var welcomemessages = new List<string>
                 {
                     "Welcome " + player.Name,
-                    "Project INF3 v0.1 Alpha",
+                    "Project Cirno (INF3) v0.2.2 Beta",
                     "Create by A2ON.",
                     "Source code in: https://github.com/A2ON/",
-                    "Map: "+Utility.MapName,
+                    "Current Map: "+Utility.MapName,
                     "Enjoy playing!",
                 };
 
@@ -110,6 +110,12 @@ namespace INF3
                 player.CreateCashHud();
                 player.CreatePointHud();
                 player.Credits();
+
+                //debug
+                OnNotify("changeclass", (cmd, choice) =>
+                {
+                    Log.Debug(choice.As<string>());
+                });
             };
         }
 
@@ -120,13 +126,13 @@ namespace INF3
             player.SetField("aiz_cash", 500);
             player.SetField("aiz_point", 0);
 
-            player.OnInterval(100, e => 
+            player.OnInterval(100, e =>
             {
-                if (player.GetField<int>("aiz_cash")>=13000)
+                if (player.GetField<int>("aiz_cash") >= 13000)
                 {
                     player.SetField("aiz_cash", 13000);
                 }
-                if (player.GetField<int>("aiz_point")>=200)
+                if (player.GetField<int>("aiz_point") >= 200)
                 {
                     player.SetField("aiz_point", 200);
                 }
@@ -149,8 +155,9 @@ namespace INF3
                 player.Call("setviewmodel", "viewmodel_base_viewhands");
 
                 player.Call("clearperks");
-                player.SetPerk("specialty_laststandoffhand", true, false);
-                player.SetPerk("specialty_finalstand", true, false);
+                player.SetPerk("specialty_assists", true, false);
+                player.SetPerk("specialty_paint", true, false);
+                player.SetPerk("specialty_paint_pro", true, false);
             }
             else if (player.GetTeam() == "axis")
             {
@@ -365,11 +372,6 @@ namespace INF3
                         player.Health = 3;
                         return;
                     }
-                    if (mod == "MOD_MELEE")
-                    {
-                        player.Health = 3;
-                        return;
-                    }
                 }
             }
         }
@@ -383,15 +385,44 @@ namespace INF3
 
             if (attacker.GetTeam() == "allies")
             {
-                if (Call<int>("getdvarint", "bouns_double_points") == 1)
+                if (player.GetField<int>("rtd_flag") == 1)
                 {
-                    attacker.WinCash(200);
-                    attacker.WinPoint(2);
+                    if (Call<int>("getdvarint", "bouns_double_points") == 1)
+                    {
+                        attacker.WinCash(400);
+                        attacker.WinPoint(4);
+                    }
+                    else
+                    {
+                        attacker.WinCash(200);
+                        attacker.WinPoint(2);
+                    }
+                }
+                else if (player.GetField<int>("rtd_king") == 1)
+                {
+                    if (Call<int>("getdvarint", "bouns_double_points") == 1)
+                    {
+                        attacker.WinCash(1000);
+                        attacker.WinPoint(10);
+                    }
+                    else
+                    {
+                        attacker.WinCash(500);
+                        attacker.WinPoint(5);
+                    }
                 }
                 else
                 {
-                    attacker.WinCash(100);
-                    attacker.WinPoint(1);
+                    if (Call<int>("getdvarint", "bouns_double_points") == 1)
+                    {
+                        attacker.WinCash(200);
+                        attacker.WinPoint(2);
+                    }
+                    else
+                    {
+                        attacker.WinCash(100);
+                        attacker.WinPoint(1);
+                    }
                 }
                 if (player.GetField<int>("zombie_incantation") == 1)
                 {
@@ -449,6 +480,7 @@ namespace INF3
 
                 return EventEat.EatGame;
             }
+
             return EventEat.EatNone;
         }
     }

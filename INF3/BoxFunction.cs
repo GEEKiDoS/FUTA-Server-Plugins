@@ -210,6 +210,7 @@ namespace INF3
             {
                 if (player.GetCash() >= 700)
                 {
+                    player.PayCash(700);
                     ent.SetField("player", player.Name);
                     Function.SetEntRef(-1);
                     Function.Call("setdvar", "scr_aiz_power", 2);
@@ -292,12 +293,12 @@ namespace INF3
             {
                 if (player.GetCash() >= perk.Pay)
                 {
-                    if (player.GetField<int>("aiz_perks")>=5)
+                    if (player.GetField<int>("aiz_perks") >= 5)
                     {
                         player.Call("iprintln", "^1You already have 5 Perk-a-Cola.");
                         return;
                     }
-                    if (PerkCola.HasPerkCola(player,perk))
+                    if (PerkCola.HasPerkCola(player, perk))
                     {
                         player.Call("iprintln", "^1You already have " + perk.FullName + ".");
                         return;
@@ -346,14 +347,14 @@ namespace INF3
             {
                 player.GiveWeapon("trophy_mp");
             }
-            if (!player.HasWeapon("claymore_mp"))
+            if (!player.HasWeapon("frag_grenade_mp"))
             {
-                player.GiveWeapon("claymore_mp");
+                player.GiveWeapon("frag_grenade_mp");
             }
             player.Call("setweaponammoclip", "trophy_mp", 99);
-            player.Call("setweaponammoclip", "claymore_mp", 99);
+            player.Call("setweaponammoclip", "flag_grenade_mp", 99);
             player.Call("givemaxammo", "trophy_mp");
-            player.Call("givemaxammo", "claymore_mp");
+            player.Call("givemaxammo", "flag_grenade_mp");
         }
 
         private static void Gamble(this Entity player)
@@ -493,8 +494,8 @@ namespace INF3
                         {
                             if (item.GetTeam() == "allies" && item.IsAlive)
                             {
-                                player.SetField("aiz_cash", 0);
-                                player.SetField("aiz_point", 0);
+                                item.SetField("aiz_cash", 0);
+                                item.SetField("aiz_point", 0);
                                 if (player != item)
                                 {
                                     item.GamblerText("Surprise!", new Vector3(1, 1, 1), new Vector3(0, 0, 0), 1, 0.85f);
@@ -549,7 +550,7 @@ namespace INF3
         private static void RandomPerk(this Entity player, Entity ent)
         {
             var perk = PerkCola.RandomPerk();
-            while (PerkCola.HasPerkCola(player,perk))
+            while (PerkCola.HasPerkCola(player, perk))
             {
                 perk = PerkCola.RandomPerk();
             }

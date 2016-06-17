@@ -251,7 +251,7 @@ namespace INF3
 
             HudElem credits2 = HudElem.CreateFontString(player, "hudbig", 0.6f);
             credits2.SetPoint("CENTER", "BOTTOM", 0, -90);
-            credits2.Call("settext", "Vesion 0.2.1 Beta. Code in: https://github.com/A2ON");
+            credits2.Call("settext", "Vesion 0.2.2 Beta. Code in: https://github.com/A2ON");
             credits2.Alpha = 0f;
             credits2.SetField("glowcolor", new Vector3(1f, 0.5f, 1f));
             credits2.GlowAlpha = 1f;
@@ -271,6 +271,7 @@ namespace INF3
             });
         }
 
+        [Obsolete]
         public static void TextPopup(this Entity player, string text)
         {
             HudElem hud;
@@ -299,6 +300,7 @@ namespace INF3
             });
         }
 
+        [Obsolete]
         public static void TextPopup2(this Entity player, string text)
         {
             HudElem hud;
@@ -327,6 +329,7 @@ namespace INF3
             });
         }
 
+        [Obsolete]
         private static void CreateRankHud(this Entity player)
         {
             var hud = HudElem.CreateFontString(player, "hudbig", 1);
@@ -337,6 +340,7 @@ namespace INF3
             player.SetField("scorepopup", new Parameter(hud));
         }
 
+        [Obsolete]
         public static void ScorePopup(this Entity player, int amount, Vector3 hudcolor, float glowalpha)
         {
             if (amount == 0)

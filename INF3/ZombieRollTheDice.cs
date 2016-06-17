@@ -427,30 +427,10 @@ namespace INF3
             if (player.GetField<int>("rtd_flag") == 1)
             {
                 player.Call("detach", GetCarryFlag(Utility.MapName), "j_spine4");
-                if (Call<int>("getdvarint", "bouns_double_points") == 1)
-                {
-                    attacker.WinCash(200);
-                    attacker.WinPoint(2);
-                }
-                else
-                {
-                    attacker.WinCash(100);
-                    attacker.WinPoint(1);
-                }
             }
             if (player.GetField<int>("rtd_king") == 1)
             {
                 player.Call("detach", GetCarryFlag(Utility.MapName), "j_spine4");
-                if (Call<int>("getdvarint", "bouns_double_points") == 1)
-                {
-                    attacker.WinCash(800);
-                    attacker.WinPoint(8);
-                }
-                else
-                {
-                    attacker.WinCash(400);
-                    attacker.WinPoint(4);
-                }
             }
             if (player.GetField<int>("rtd_tombstone") == 1)
             {

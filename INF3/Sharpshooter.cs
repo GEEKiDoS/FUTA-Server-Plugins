@@ -95,10 +95,10 @@ namespace INF3
                     }
                     player.AfterDelay(100, ent =>
                     {
+                        player.GiveWeapon("frag_grenade_mp");
                         player.GiveWeapon("trophy_mp");
-                        player.GiveWeapon("claymore_mp");
+                        player.Call("givemaxammo", "frag_grenade_mp");
                         player.Call("givemaxammo", "trophy_mp");
-                        player.Call("givemaxammo", "claymore_mp");
                     });
                     player.AfterDelay(100, ent =>
                     {
@@ -120,6 +120,9 @@ namespace INF3
                 player.GiveWeapon(_currentWeapon.Code);
                 player.Call("giveMaxAmmo", _currentWeapon.Code);
 
+                player.GiveWeapon("frag_grenade_mp");
+                player.GiveWeapon("trophy_mp");
+
                 player.AfterDelay(100, entity =>
                 {
                     entity.SwitchToWeaponImmediate(_currentWeapon.Code);
@@ -136,7 +139,7 @@ namespace INF3
                             player.Call("giveMaxAmmo", weapon);
                     }
 
-                    if (player.GetTeam()=="axis")
+                    if (player.GetTeam() == "axis")
                     {
                         return false;
                     }

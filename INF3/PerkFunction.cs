@@ -24,7 +24,7 @@ namespace INF3
 
         public override void OnPlayerDamage(Entity player, Entity inflictor, Entity attacker, int damage, int dFlags, string mod, string weapon, Vector3 point, Vector3 dir, string hitLoc)
         {
-            if(attacker == null || !attacker.IsPlayer || attacker.GetTeam() == player.GetTeam())
+            if (attacker == null || !attacker.IsPlayer || attacker.GetTeam() == player.GetTeam())
                 return;
 
             if (attacker.GetTeam() == "allies")
@@ -50,15 +50,23 @@ namespace INF3
                 {
                     player.Health = 3;
                 }
-                if (attacker.GetField<int>("perk_widow") == 1 && mod != "MOD_MELEE")
+                if (attacker.GetField<int>("perk_widow") == 1 && mod.Contains("BULLET"))
                 {
                     attacker.SetField("perk_widow", 2);
+                    if (player.Origin.DistanceTo(attacker.Origin) <= 200)
+                    {
+                        attacker.Health = attacker.GetField<int>("maxhealth");
+                    }
                     WidowsWineThink(attacker, player.Origin);
+                }
+                if (weapon=="frag_grenade_mp" && attacker.GetField<int>("perk_widow") == 1)
+                {
+                    player.SetField("speed", 0.5f);
                 }
             }
             else if (attacker.GetTeam() == "axis")
             {
-                if (player.GetField<int>("perk_phd") == 1 && (mod != "MOD_MELEE" || !mod.Contains("BULLET")))
+                if (player.GetField<int>("perk_phd") == 1 && mod != "MOD_MELEE" && !mod.Contains("BULLET"))
                 {
                     player.Health = player.GetField<int>("maxhealth");
                 }
@@ -67,6 +75,10 @@ namespace INF3
                     player.SetField("perk_cherry", 2);
                     player.Health = player.GetField<int>("maxhealth");
                     ElectricCherryThink(player);
+                }
+                if (player.GetField<int>("perk_widow") == 1 && mod=="MOD_MELEE")
+                {
+                    attacker.SetField("speed", 0.5f);
                 }
             }
         }
@@ -92,13 +104,13 @@ namespace INF3
             {
                 zombie.ElectricCherryExploed(player);
             }
-            AfterDelay(3000, () => player.SetField("perk_cherry", 1));
+            AfterDelay(5000, () => player.SetField("perk_cherry", 1));
         }
 
         private void WidowsWineThink(Entity player, Vector3 origin)
         {
             Effects.WidowsWineExploed(player, origin);
-            AfterDelay(10000, () => player.SetField("perk_widow", 1));
+            AfterDelay(15000, () => player.SetField("perk_widow", 1));
         }
     }
 }

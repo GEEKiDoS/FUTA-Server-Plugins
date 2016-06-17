@@ -357,6 +357,8 @@ namespace INF3
                     break;
                 case MULE_KICK:
                     player.SetField("perk_mulekick", 1);
+                    player.GiveWeapon(Sharpshooter._mulekickWeapon.Code);
+                    player.Call("givemaxammo", Sharpshooter._mulekickWeapon.Code);
                     break;
                 case DOUBLE_TAP:
                     player.SetField("perk_doubletap", 1);
