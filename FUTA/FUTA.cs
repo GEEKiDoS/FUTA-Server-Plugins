@@ -79,6 +79,13 @@ namespace FUTA
 
                 });
 
+                player.OnInterval(100, e => 
+                {
+                    player.Call("freezecontrols", false);
+
+                    return true;
+                });
+
                 OnSpawned(player); //Fix S&D 
                 player.SpawnedPlayer += () => OnSpawned(player);
             });

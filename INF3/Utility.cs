@@ -54,6 +54,8 @@ namespace INF3
             Function.Call("PreCacheModel", model);
         }
 
+        #region Model
+
         public static string GetFlagModel(string mapname)
         {
             switch (mapname)
@@ -100,6 +102,120 @@ namespace INF3
             }
             return "";
         }
+
+        public static string GetSniperEnv(string mapname)
+        {
+            switch (mapname)
+            {
+                case "mp_alpha":
+                case "mp_bootleg":
+                case "mp_exchange":
+                case "mp_hardhat":
+                case "mp_interchange":
+                case "mp_mogadishu":
+                case "mp_paris":
+                case "mp_plaza2":
+                case "mp_underground":
+                case "mp_cement":
+                case "mp_hillside_ss":
+                case "mp_overwatch":
+                case "mp_terminal_cls":
+                case "mp_aground_ss":
+                case "mp_courtyard_ss":
+                case "mp_meteora":
+                case "mp_morningwood":
+                case "mp_qadeem":
+                case "mp_crosswalk_ss":
+                case "mp_italy":
+                case "mp_boardwalk":
+                case "mp_roughneck":
+                case "mp_nola":
+                    return "urban";
+                case "mp_dome":
+                case "mp_restrepo_ss":
+                case "mp_burn_ss":
+                case "mp_seatown":
+                case "mp_shipbreaker":
+                case "mp_moab":
+                    return "desert";
+                case "mp_bravo":
+                case "mp_carbon":
+                case "mp_park":
+                case "mp_six_ss":
+                case "mp_village":
+                case "mp_lambeth":
+                    return "woodland";
+                case "mp_radar":
+                    return "arctic";
+            }
+            return "";
+        }
+        public static string GetModelEnv(string mapname)
+        {
+            switch (mapname)
+            {
+                case "mp_alpha":
+                case "mp_dome":
+                case "mp_paris":
+                case "mp_plaza2":
+                case "mp_terminal_cls":
+                case "mp_bootleg":
+                case "mp_restrepo_ss":
+                case "mp_hillside_ss":
+                    return "russian_urban";
+                case "mp_exchange":
+                case "mp_hardhat":
+                case "mp_underground":
+                case "mp_cement":
+                case "mp_overwatch":
+                case "mp_nola":
+                case "mp_boardwalk":
+                case "mp_roughneck":
+                case "mp_crosswalk_ss":
+                    return "russian_air";
+                case "mp_interchange":
+                case "mp_lambeth":
+                case "mp_six_ss":
+                case "mp_moab":
+                case "mp_park":
+                    return "russian_woodland";
+                case "mp_radar":
+                    return "russian_arctic";
+                case "mp_seatown":
+                case "mp_aground_ss":
+                case "mp_burn_ss":
+                case "mp_courtyard_ss":
+                case "mp_italy":
+                case "mp_meteora":
+                case "mp_morningwood":
+                case "mp_qadeem":
+                    return "henchmen";
+            }
+
+            return string.Empty;
+        }
+
+        public static string[] icMaps = new string[]
+        {
+                "mp_seatown",
+                "mp_aground_ss",
+                "mp_courtyard_ss",
+                "mp_italy",
+                "mp_meteora",
+                "mp_morningwood",
+                "mp_qadeem",
+                "mp_burn_ss"
+        };
+        public static string[] africaMaps = new string[]
+        {
+                "mp_bravo",
+                "mp_carbon",
+                "mp_mogadishu",
+                "mp_village",
+                "mp_shipbreaker",
+        };
+
+        #endregion
 
         public static string GetTeam(this Entity e)
         {

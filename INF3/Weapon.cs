@@ -131,18 +131,24 @@ namespace INF3
         private static string[] GetSnipeAttachments1 = new string[] { "none", "acog", "vzscope", "thermal" };
         private static string[] GetSnipeAttachments2 = new string[] { "none", "silencer03", "xmags", "heartbeat" };
 
-        private static string[] _weaponList = new string[]
+        private static string[] _firstWeaponList = new string[]
         {
             "iw5_fad", "iw5_acr", "iw5_type95", "iw5_mk14", "iw5_scar", "iw5_g36c", "iw5_cm901",
             "iw5_m16", "iw5_m4",
             "iw5_ak47",
             "iw5_fmg9", "iw5_skorpion", "iw5_mp9", "iw5_g18",
-            //"uav_strike_marker",
             "rpg", "iw5_smaw", "xm25", "m320", "javelin", "stinger",
             "iw5_m60", "iw5_mk46", "iw5_pecheneg", "iw5_sa80", "iw5_mg36",
+            "iw5_1887", "iw5_striker", "iw5_aa12", "iw5_usas12", "iw5_spas12", "iw5_ksg",
+            "uav_strike_marker","gl","riotshield",
+            "iw5_mp5", "iw5_m9", "iw5_p90", "iw5_pp90m1", "iw5_ump45", "iw5_mp7",
+            "iw5_dragunov", "iw5_msr", "iw5_barrett", "iw5_rsass", "iw5_as50", "iw5_l96a1"
+        };
+
+        private static string[] _secondWeaponList = new string[]
+        {
             "iw5_usp45", "iw5_p99", "iw5_fnfiveseven",
             "iw5_44magnum", "iw5_mp412", "iw5_deserteagle",
-            "iw5_1887", "iw5_striker", "iw5_aa12", "iw5_usas12", "iw5_spas12", "iw5_ksg",
         };
 
         private Weapon()
@@ -348,9 +354,28 @@ namespace INF3
             }
         }
 
-        public static Weapon GetRandomWeapon()
+        public static Weapon GetRandomFirstWeapon()
         {
-            string baseweapon = _weaponList[_rng.Next(_weaponList.Length)];
+            string baseweapon = _firstWeaponList[_rng.Next(_firstWeaponList.Length)];
+            string att1;
+            string att2;
+
+            Weapon weapon = new Weapon();
+
+            weapon.GetRandomAttachments(baseweapon, out att1, out att2);
+
+            weapon.BaseName = baseweapon;
+            weapon.Attachment1 = att1;
+            weapon.Attachment2 = att2;
+            weapon.Camo = weapon.GetRandomCamo();
+            weapon.Reticle = weapon.GetRandomReticle();
+
+            return weapon;
+        }
+
+        public static Weapon GetRandomSecondWeapon()
+        {
+            string baseweapon = _secondWeaponList[_rng.Next(_secondWeaponList.Length)];
             string att1;
             string att2;
 

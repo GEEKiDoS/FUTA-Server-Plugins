@@ -27,7 +27,22 @@ namespace SXXMFaker
                         return player != null && player.IsPlayer;
                     });
                 }
+
+                player.OnInterval(100, e =>
+                {
+                    player.Call("freezecontrols", false);
+
+                    return true;
+                });
             };
+        }
+
+        public override void OnPlayerKilled(Entity player, Entity inflictor, Entity attacker, int damage, string mod, string weapon, Vector3 dir, string hitLoc)
+        {
+            if (mod=="MOD_HEAD_SHOT")
+            {
+                player.Call("detachall");
+            }
         }
 
         public void Print(string message)

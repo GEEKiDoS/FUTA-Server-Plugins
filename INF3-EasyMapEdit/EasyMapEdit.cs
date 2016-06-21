@@ -159,7 +159,7 @@ namespace INF3
                 creating = false;
                 end = player.Origin;
                 player.Call("iprintlnbold", "wall end set: " + end);
-                File.AppendAllText(_currentPath, Environment.NewLine + "wall: " + start + ";" + end);
+                File.AppendAllText(_currentPath, Environment.NewLine + "wall: " + end + ";" + start);
                 return;
             }
             if (message == "!invwall" && !creating)
@@ -315,6 +315,12 @@ namespace INF3
                 File.AppendAllText(_currentPath, Environment.NewLine + "randomperk: " + player.Origin + ";" + player.GetField<Vector3>("angles"));
                 return;
             }
+            if (message=="!gobblegum")
+            {
+                player.Call("iprintlnbold", "gobblegum set: " + player.Origin);
+                File.AppendAllText(_currentPath, Environment.NewLine + "gobblegum: " + player.Origin + ";" + player.GetField<Vector3>("angles"));
+                return;
+            }
             if (message.StartsWith("!model"))
             {
                 var split = message.Split(new char[] { ' ' }, 2);
@@ -347,6 +353,13 @@ namespace INF3
                 player.Call("iprintlnbold", "sam set: " + player.Origin);
                 File.AppendAllText(_currentPath, Environment.NewLine + "sam: " + player.Origin + ";" + player.GetField<Vector3>("angles"));
                 return;
+            }
+            if(message=="!undo")
+            {
+                var lines=File.ReadAllLines(_currentPath).ToList();
+                lines.Remove(lines.Last());
+                File.Delete(_currentPath);
+                File.WriteAllLines(_currentPath, lines);
             }
             if (message == "!restart")
             {

@@ -19,6 +19,8 @@ namespace INF3
         private static List<int> _perkboxs = new List<int>();
         private static bool _haspowerbox = false;
 
+        public static List<Entity> doors = new List<Entity>();
+
         public MapEdit()
         {
             var _e = Call<Entity>("getent", "care_package", "targetname");
@@ -134,6 +136,10 @@ namespace INF3
                 }
                 if (player.GetField<int>("usingtelepot") == 0)
                 {
+                    if (Call<int>("getdvarint", "bonus_fire_sale") == 1)
+                    {
+                        return "Press ^3[{+activate}] ^7to use teleporter. [Cost: ^2$^610^7]";
+                    }
                     return "Press ^3[{+activate}] ^7to use teleporter. [Cost: ^2$^3500^7]";
                 }
             }
@@ -161,7 +167,11 @@ namespace INF3
         {
             if (player.GetTeam() == "allies")
             {
-                return "Press ^3[{+activate}] ^7to buy ammo. [Cost: ^2$^3300^7]";
+                if (Call<int>("getdvarint", "bonus_fire_sale") == 1)
+                {
+                    return "Press ^3[{+activate}] ^7to buy ammo. [Cost: ^2$^610^7]";
+                }
+                return "Press ^3[{+activate}] ^7to buy ammo. [Cost: ^2$^3100^7]";
             }
             return "";
         }
@@ -170,8 +180,12 @@ namespace INF3
         {
             if (player.GetTeam() == "allies")
             {
-                if (ent.GetField<string>("state") == "idle")
+                if (ent.GetField<string>("state") == "idle" && player.GetField<int>("isgambling") == 0)
                 {
+                    if (Call<int>("getdvarint", "bonus_fire_sale") == 1)
+                    {
+                        return "Press ^3[{+activate}] ^7to gamble. [Cost: ^2$^610^7]";
+                    }
                     return "Press ^3[{+activate}] ^7to gamble. [Cost: ^2$^3500^7]";
                 }
             }
@@ -186,7 +200,7 @@ namespace INF3
                 {
                     return "Requires Electricity";
                 }
-                return "Press ^3[{+activate}] ^7to buy random airstrike. [Cost: ^310 ^5Bouns Points^7]";
+                return "Press ^3[{+activate}] ^7to buy random airstrike. [Cost: ^310 ^5bonus Points^7]";
             }
             return "";
         }
@@ -204,7 +218,7 @@ namespace INF3
             return "";
         }
 
-        private string RandomPerkText(Entity ent, Entity player)
+        private string RandomPerkText(Entity player)
         {
             if (player.GetTeam() == "allies")
             {
@@ -212,7 +226,16 @@ namespace INF3
                 {
                     return "Requires Electricity";
                 }
-                return "Press ^3[{+activate}] ^7to use Der Wunderfizz. [Cost: ^310 ^5Bouns Points^7]";
+                return "Press ^3[{+activate}] ^7to use Der Wunderfizz. [Cost: ^310 ^5bonus Points^7]";
+            }
+            return "";
+        }
+
+        private string GobbleGumText(Entity player)
+        {
+            if (player.GetTeam() == "allies")
+            {
+                return "Press ^3[{+activate}] ^7to buy a Gobble Gum. [Cost: ^35 ^5bonus Points^7]";
             }
             return "";
         }
@@ -279,7 +302,10 @@ namespace INF3
                                 message.SetText(PerkText(player, ent.GetField<PerkCola>("perk")));
                                 break;
                             case "randomperk":
-                                message.SetText(RandomPerkText(ent, player));
+                                message.SetText(RandomPerkText(player));
+                                break;
+                            case "gobblegum":
+                                message.SetText(GobbleGumText(player));
                                 break;
                         }
                         flag = true;
@@ -314,7 +340,7 @@ namespace INF3
                     var flag = false;
                     foreach (var ent in usables)
                     {
-                        if (player.Origin.DistanceTo(ent.Origin) >= ent.GetField<int>("range"))
+                        if (player.Origin.DistanceTo(ent.Origin) >= 50)
                         {
                             continue;
                         }
@@ -326,7 +352,7 @@ namespace INF3
                             hud.Y = ent.Origin.Y;
                             hud.Z = ent.Origin.Z + 50f;
                             hud.Call("setwaypoint", ent.Origin);
-                            hud.Alpha = 1;
+                            hud.Alpha = 0.7f;
                         }
 
                         flag = true;
@@ -408,6 +434,8 @@ namespace INF3
                                     {
                                         BoxFunction.UseRandomPerk(ent, player);
                                     }
+                                    break;
+                                case "gobblegum":
                                     break;
                             }
                         }
@@ -594,6 +622,7 @@ namespace INF3
             ent.SetField("open", open);
             ent.SetField("close", close);
 
+            doors.Add(ent);
             MakeUsable(ent, "door", range);
         }
 
@@ -859,6 +888,16 @@ namespace INF3
             MakeUsable(ent, "randomperk", 50);
         }
 
+        public void CreateGobbleGumMachine(Vector3 origin, Vector3 angles)
+        {
+            Entity ent = SpawnCrate(origin, angles);
+            CreateObjective(ent, "dpad_killstreak_ac130", "allies");
+            CreateShader(ent, "dpad_killstreak_ac130", "allies");
+            CreateLaptop(ent);
+
+            MakeUsable(ent, "gobblegum", 50);
+        }
+
         public Entity SpawnCrate(Vector3 origin, Vector3 angles)
         {
             Entity entity = Utility.Spawn("script_model", origin);
@@ -1039,6 +1078,13 @@ namespace INF3
                                     if (strArray.Length >= 2)
                                     {
                                         CreateRandomPerk(ParseVector3(strArray[0]) + new Vector3(0, 0, 5), new Vector3(0, ParseVector3(strArray[1]).Y, 0));
+                                    }
+                                    continue;
+                                case "gobblegum":
+                                    strArray = strArray[1].Split(new char[] { ';' });
+                                    if (strArray.Length >= 2)
+                                    {
+                                        CreateGobbleGumMachine(ParseVector3(strArray[0]) + new Vector3(0, 0, 5), new Vector3(0, ParseVector3(strArray[1]).Y, 0));
                                     }
                                     continue;
                             }

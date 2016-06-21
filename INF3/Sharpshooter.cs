@@ -8,20 +8,23 @@ namespace INF3
 {
     public class Sharpshooter : BaseScript
     {
-        public static Weapon _currentWeapon;
+        public static Weapon _firstWeapon;
         public static Weapon _mulekickWeapon;
+        public static Weapon _secondeWeapon;
 
         private HudElem _cycleTimer;
-        private int _cycleRemaining = 30;
+
+        public static int _cycleRemaining = 30;
 
         public Sharpshooter()
         {
-            _currentWeapon = Weapon.GetRandomWeapon();
-            _mulekickWeapon = Weapon.GetRandomWeapon();
+            _firstWeapon = Weapon.GetRandomFirstWeapon();
+            _secondeWeapon = Weapon.GetRandomSecondWeapon();
+            _mulekickWeapon = Weapon.GetRandomFirstWeapon();
 
-            while (_mulekickWeapon.BaseName == _currentWeapon.BaseName)
+            while (_mulekickWeapon.BaseName == _firstWeapon.BaseName)
             {
-                _mulekickWeapon = Weapon.GetRandomWeapon();
+                _mulekickWeapon = Weapon.GetRandomFirstWeapon();
             }
 
             OnInterval(100, () =>
@@ -72,12 +75,13 @@ namespace INF3
 
         public void UpdateWeapon()
         {
-            _currentWeapon = Weapon.GetRandomWeapon();
-            _mulekickWeapon = Weapon.GetRandomWeapon();
+            _firstWeapon = Weapon.GetRandomFirstWeapon();
+            _secondeWeapon = Weapon.GetRandomSecondWeapon();
+            _mulekickWeapon = Weapon.GetRandomFirstWeapon();
 
-            while (_mulekickWeapon.BaseName == _currentWeapon.BaseName)
+            while (_mulekickWeapon.BaseName == _firstWeapon.BaseName || _mulekickWeapon.Type == Weapon.WeaponType.Launcher || _mulekickWeapon.Type == Weapon.WeaponType.Special || _mulekickWeapon.Type == Weapon.WeaponType.KillstreakHandheld)
             {
-                _mulekickWeapon = Weapon.GetRandomWeapon();
+                _mulekickWeapon = Weapon.GetRandomFirstWeapon();
             }
 
             foreach (var player in Players)
@@ -86,24 +90,37 @@ namespace INF3
                 {
                     player.TakeAllWeapons();
 
-                    player.GiveWeapon(_currentWeapon.Code);
-                    player.Call("givemaxammo", _currentWeapon.Code);
+                    player.GiveWeapon(_firstWeapon.Code);
+                    player.Call("givemaxammo", _firstWeapon.Code);
                     if (player.GetField<int>("perk_mulekick") == 1)
                     {
                         player.GiveWeapon(_mulekickWeapon.Code);
                         player.Call("givemaxammo", _mulekickWeapon.Code);
                     }
+                    if (player.HasField("perk_vultrue") && player.GetField<int>("perk_vultrue") == 1)
+                    {
+                        player.GiveWeapon("uav_strike_marker_mp");
+                        player.Call("givemaxammo", "uav_strike_marker_mp");
+                    }
+                    else
+                    {
+                        player.GiveWeapon(_secondeWeapon.Code);
+                        player.Call("givemaxammo", _secondeWeapon.Code);
+                    }
                     player.AfterDelay(100, ent =>
                     {
                         player.GiveWeapon("frag_grenade_mp");
-                        player.GiveWeapon("trophy_mp");
                         player.Call("givemaxammo", "frag_grenade_mp");
-                        player.Call("givemaxammo", "trophy_mp");
+                        if (player.GetField<int>("perk_vultrue") == 1)
+                        {
+                            player.GiveWeapon("trophy_mp");
+                            player.Call("givemaxammo", "trophy_mp");
+
+                        }
                     });
                     player.AfterDelay(100, ent =>
                     {
-                        ent.SwitchToWeaponImmediate(_currentWeapon.Code);
-                        ent.Call("iprintlnbold", _currentWeapon.Name);
+                        ent.SwitchToWeaponImmediate(_firstWeapon.Code);
                     });
 
                     player.GamblerText("Weapon Cycled", new Vector3(1, 1, 1), new Vector3(0.3f, 0.3f, 0.9f), 1, 0.85f);
@@ -117,23 +134,24 @@ namespace INF3
             {
                 player.TakeAllWeapons();
 
-                player.GiveWeapon(_currentWeapon.Code);
-                player.Call("giveMaxAmmo", _currentWeapon.Code);
+                player.GiveWeapon(_firstWeapon.Code);
+                player.Call("giveMaxAmmo", _firstWeapon.Code);
+                player.GiveWeapon(_secondeWeapon.Code);
+                player.Call("giveMaxAmmo", _secondeWeapon.Code);
 
                 player.GiveWeapon("frag_grenade_mp");
                 player.GiveWeapon("trophy_mp");
 
                 player.AfterDelay(100, entity =>
                 {
-                    entity.SwitchToWeaponImmediate(_currentWeapon.Code);
-                    entity.Call("iprintlnbold", _currentWeapon.Name);
+                    entity.SwitchToWeaponImmediate(_firstWeapon.Code);
                 });
 
-                player.OnInterval(1000, e =>
+                player.OnInterval(100, e =>
                 {
                     var weapon = player.CurrentWeapon;
 
-                    if (weapon.StartsWith("rpg") || weapon.StartsWith("iw5_smaw") || weapon.StartsWith("m320") || weapon.StartsWith("uav") || weapon.StartsWith("stinger") || weapon.StartsWith("javelin") || weapon.StartsWith("gl"))
+                    if (weapon.StartsWith("rpg") || weapon.StartsWith("iw5_smaw") || weapon.StartsWith("m320") || weapon.StartsWith("stinger") || weapon.StartsWith("javelin") || weapon.StartsWith("gl") || weapon.StartsWith("uav"))
                     {
                         if (player.IsAlive && player.HasField("perk_vultrue") && player.GetField<int>("perk_vultrue") == 1)
                             player.Call("giveMaxAmmo", weapon);

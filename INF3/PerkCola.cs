@@ -61,6 +61,10 @@ namespace INF3
 
         public static string PerkBoxHintString(PerkCola perk)
         {
+            if (Function.Call<int>("getdvarint", "bonus_fire_sale") == 1)
+            {
+                return "Press ^3[{+activate}]^7 to buy " + perk.FullName + ". [Cost: ^2$^610^7]";
+            }
             return "Press ^3[{+activate}]^7 to buy " + perk.FullName + ". [Cost: ^2$^3" + perk.Pay + "^7]";
         }
 
@@ -195,11 +199,11 @@ namespace INF3
             }
             if (perk.Type == DEAD_SHOT)
             {
-                return 500;
+                return 600;
             }
             if (perk.Type == PHD)
             {
-                return 700;
+                return 800;
             }
             if (perk.Type == ELECTRIC_CHERRY)
             {
@@ -207,7 +211,7 @@ namespace INF3
             }
             if (perk.Type == WIDOW_S_WINE)
             {
-                return 800;
+                return 1000;
             }
             if (perk.Type == VULTURE_AID)
             {
@@ -333,7 +337,6 @@ namespace INF3
             {
                 case QUICK_REVIVE:
                     player.SetField("perk_revive", 1);
-                    player.GamblerText("Comming Soon!", new Vector3(1, 1, 1), new Vector3(0.3f, 0.3f, 0.9f), 1, 0.85f);
                     break;
                 case SPEED_COLA:
                     player.SetField("perk_speedcola", 1);
@@ -343,6 +346,7 @@ namespace INF3
                     break;
                 case JUGGERNOG:
                     player.SetField("perk_juggernog", 1);
+                    player.SetField("oldmodel", player.GetField<string>("model"));
                     player.Call("setmodel", "mp_fullbody_ally_juggernaut");
                     player.Call("setviewmodel", "viewhands_juggernaut_ally");
                     player.SetField("maxhealth", 300);
@@ -381,6 +385,7 @@ namespace INF3
                     break;
                 case WIDOW_S_WINE:
                     player.SetField("perk_widow", 1);
+                    player.SetPerk("specialty_fastermelee", true, false);
                     break;
                 case VULTURE_AID:
                     player.SetField("perk_vultrue", 1);
@@ -389,7 +394,38 @@ namespace INF3
             }
         }
 
-        public static void ResetPerks(Entity player)
+        public static void TakeAllPerkCola(Entity player)
+        {
+            player.Call("clearperks");
+
+            if (player.GetField<int>("perk_juggernog") == 1)
+            {
+                player.Call("setmodel", player.GetField<string>("oldmodel"));
+                player.Call("setviewmodel", "viewmodel_base_viewhands");
+                player.SetField("maxhealth", 100);
+                player.Health = 100;
+            }
+            if (player.GetField<int>("perk_staminup") == 1)
+            {
+                player.SetField("speed", 1);
+            }
+            if (player.GetField<int>("perk_mulekick") == 1)
+            {
+                player.TakeWeapon(Sharpshooter._mulekickWeapon.Code);
+                player.AfterDelay(300, e => player.SwitchToWeaponImmediate(Sharpshooter._firstWeapon.Code));
+            }
+            if (player.GetField<int>("perk_vultrue") == 1)
+            {
+                player.TakeWeapon("uav_strike_marker_mp");
+                player.GiveWeapon(Sharpshooter._secondeWeapon.Code);
+                player.Call("givemaxammo", Sharpshooter._secondeWeapon.Code);
+                player.AfterDelay(300, e => player.SwitchToWeaponImmediate(Sharpshooter._firstWeapon.Code));
+            }
+
+            ResetPerkCola(player);
+        }
+
+        public static void ResetPerkCola(Entity player)
         {
             player.SetField("aiz_perks", 0);
 

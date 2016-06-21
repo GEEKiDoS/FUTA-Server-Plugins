@@ -164,7 +164,32 @@ namespace INF3
             if (!player.IsAlive) return;
             if (player.GetTeam() == "allies" && player.GetField<int>("usingtelepot") == 0)
             {
-                if (player.GetCash() >= 500)
+                if (Function.Call<int>("getdvarint", "bonus_fire_sale") == 1 && player.GetCash() >= 10)
+                {
+                    player.PayCash(10);
+                    player.SetField("usingtelepot", 1);
+                    Vector3 start = player.Origin;
+                    player.Call("shellshock", "frag_grenade_mp", 3);
+                    player.AfterDelay(2000, e =>
+                    {
+                        player.Call("shellshock", "concussion_grenade_mp", 3);
+                        player.Call("setorigin", ent.GetField<Vector3>("exit"));
+                    });
+                    player.AfterDelay(32000, en =>
+                    {
+                        if (player.GetTeam() == "allies")
+                        {
+                            if (player.Call<int>("islinked") != 0)
+                            {
+                                player.Call("unlink");
+                            }
+                            player.Call("shellshock", "concussion_grenade_mp", 3);
+                            player.Call("setorigin", start);
+                            player.SetField("usingtelepot", 0);
+                        }
+                    });
+                }
+                else if (player.GetCash() >= 500)
                 {
                     player.PayCash(500);
                     player.SetField("usingtelepot", 1);
@@ -212,7 +237,6 @@ namespace INF3
                 {
                     player.PayCash(700);
                     ent.SetField("player", player.Name);
-                    Function.SetEntRef(-1);
                     Function.Call("setdvar", "scr_aiz_power", 2);
                 }
                 else
@@ -227,7 +251,13 @@ namespace INF3
             if (!player.IsAlive) return;
             if (player.GetTeam() == "allies")
             {
-                if (player.GetCash() >= 100)
+                if (Function.Call<int>("getdvarint", "bonus_fire_sale") == 1 && player.GetCash() >= 10)
+                {
+                    player.PayCash(10);
+                    player.GiveAmmo();
+                    player.Call("playlocalsound", "ammo_crate_use");
+                }
+                else if (player.GetCash() >= 100)
                 {
                     player.PayCash(100);
                     player.GiveAmmo();
@@ -246,9 +276,27 @@ namespace INF3
             if (ent.GetField<string>("state") != "idle") return;
             if (player.GetTeam() == "allies")
             {
-                if (player.GetCash() >= 500)
+                if (Function.Call<int>("getdvarint", "bonus_fire_sale") == 1 && player.GetCash() >= 10 && player.GetField<int>("isgambling") == 0)
+                {
+                    player.PayCash(10);
+                    player.SetField("isgambling", 0);
+                    ent.SetField("state", "using");
+                    Entity laptop = ent.GetField<Entity>("laptop");
+                    laptop.Call("moveto", laptop.Origin + new Vector3(0, 0, 30), 2);
+                    laptop.AfterDelay(8000, e =>
+                    {
+                        laptop.Call("moveto", laptop.Origin - new Vector3(0, 0, 30), 2);
+                    });
+                    laptop.AfterDelay(10000, e =>
+                    {
+                        ent.SetField("state", "idle");
+                    });
+                    player.Gamble();
+                }
+                else if (player.GetCash() >= 500 && player.GetField<int>("isgambling") == 0)
                 {
                     player.PayCash(500);
+                    player.SetField("isgambling", 0);
                     ent.SetField("state", "using");
                     Entity laptop = ent.GetField<Entity>("laptop");
                     laptop.Call("moveto", laptop.Origin + new Vector3(0, 0, 30), 2);
@@ -291,7 +339,22 @@ namespace INF3
             if (!player.IsAlive) return;
             if (player.GetTeam() == "allies")
             {
-                if (player.GetCash() >= perk.Pay)
+                if (Function.Call<int>("getdvarint", "bonus_fire_sale") == 1 && player.GetCash() >= 10)
+                {
+                    if (player.GetField<int>("aiz_perks") >= 5)
+                    {
+                        player.Call("iprintln", "^1You already have 5 Perk-a-Cola.");
+                        return;
+                    }
+                    if (PerkCola.HasPerkCola(player, perk))
+                    {
+                        player.Call("iprintln", "^1You already have " + perk.FullName + ".");
+                        return;
+                    }
+                    player.PayCash(10);
+                    PerkCola.GivePerkCola(player, perk);
+                }
+                else if (player.GetCash() >= perk.Pay)
                 {
                     if (player.GetField<int>("aiz_perks") >= 5)
                     {
@@ -326,7 +389,7 @@ namespace INF3
                         return;
                     }
                     player.PayPoint(10);
-                    player.RandomPerk(ent);
+                    player.AfterDelay(1000, e => player.RandomPerkCola());
                 }
                 else
                 {
@@ -337,7 +400,7 @@ namespace INF3
 
         public static void GiveAmmo(this Entity player)
         {
-            player.Call("givemaxammo", Sharpshooter._currentWeapon.Code);
+            player.Call("givemaxammo", Sharpshooter._firstWeapon.Code);
             if (player.GetField<int>("perk_mulekick") == 1)
             {
                 player.Call("givemaxammo", Sharpshooter._mulekickWeapon.Code);
@@ -381,47 +444,47 @@ namespace INF3
             player.AfterDelay(9000, e => player.Call("playlocalsound", "ui_mp_nukebomb_timer"));
             player.AfterDelay(10000, e =>
             {
-                switch (Utility.Rng.Next(19))
+                switch (Utility.Rng.Next(22))
                 {
                     case 0:
                         player.PrintGambleInfo("You win nothing.", GambleType.Bad);
-                        return;
+                        break;
                     case 1:
                         player.PrintGambleInfo("You win $500.", GambleType.Good);
                         player.WinCash(500);
-                        return;
+                        break;
                     case 2:
                         player.PrintGambleInfo("You win $1000.", GambleType.Good);
                         player.WinCash(1000);
-                        return;
+                        break;
                     case 3:
                         player.PrintGambleInfo("You win $2000.", GambleType.Good);
                         player.WinCash(2000);
-                        return;
+                        break;
                     case 4:
                         player.PrintGambleInfo("You lose $500.", GambleType.Bad);
-                        player.WinCash(500);
-                        return;
+                        player.PayCash(500);
+                        break;
                     case 5:
                         player.PrintGambleInfo("You lose all money.", GambleType.Bad);
                         player.SetField("aiz_cash", 0);
-                        return;
+                        break;
                     case 6:
                         player.PrintGambleInfo("You win $10000.", GambleType.Excellent);
                         player.WinCash(10000);
-                        return;
+                        break;
                     case 7:
-                        player.PrintGambleInfo("You win 10 Bouns Points.", GambleType.Good);
+                        player.PrintGambleInfo("You win 10 bonus Points.", GambleType.Good);
                         player.WinPoint(10);
-                        return;
+                        break;
                     case 8:
-                        player.PrintGambleInfo("You win 50 Bouns Points.", GambleType.Excellent);
+                        player.PrintGambleInfo("You win 50 bonus Points.", GambleType.Excellent);
                         player.WinPoint(50);
-                        return;
+                        break;
                     case 9:
-                        player.PrintGambleInfo("You lose all Bouns Points.", GambleType.Bad);
+                        player.PrintGambleInfo("You lose all bonus Points.", GambleType.Bad);
                         player.SetField("aiz_point", 0);
-                        return;
+                        break;
                     case 10:
                         player.PrintGambleInfo("You live or die after 5 second.", GambleType.Bad);
                         player.AfterDelay(1000, ex => player.Call("iprintlnbold", "^15"));
@@ -433,6 +496,7 @@ namespace INF3
                         player.AfterDelay(4000, ex => player.Call("iprintlnbold", "^12"));
                         player.AfterDelay(4000, ex => player.Call("playlocalsound", "ui_mp_nukebomb_timer"));
                         player.AfterDelay(5000, ex => player.Call("iprintlnbold", "^11"));
+                        player.AfterDelay(5000, ex => player.Call("playlocalsound", "ui_mp_nukebomb_timer"));
                         player.AfterDelay(6000, ex =>
                         {
                             switch (Utility.Rng.Next(2))
@@ -446,24 +510,29 @@ namespace INF3
                                     break;
                             }
                         });
-                        return;
+                        break;
                     case 11:
                         player.PrintGambleInfo("Gambler Restart.", GambleType.Bad);
                         player.AfterDelay(1000, ex => player.Gamble());
                         return;
                     case 12:
-                        player.PrintGambleInfo("Wallhack for 1 min.", GambleType.Good);
-                        player.Call("thermalvisionfofoverlayon");
-                        player.AfterDelay(60000, ex =>
+                        player.PrintGambleInfo("Robbed all cash.", GambleType.Excellent);
+                        int cash = 0;
+                        foreach (var item in Utility.GetPlayers())
                         {
-                            player.Call("iprintlnbold", "Wallhack off!");
-                            player.Call("thermalvisionfofoverlayoff");
-                        });
-                        return;
+                            if (item.GetTeam() == "allies" && item.IsAlive && item != player)
+                            {
+                                item.GamblerText("Player " + player.Name + " robbed you all cash.", new Vector3(1, 1, 1), new Vector3(1, 0, 0), 1, 0.85f);
+                                cash += item.GetCash();
+                                item.SetField("cash", 0);
+                            }
+                        }
+                        player.WinCash(cash);
+                        break;
                     case 13:
                         player.PrintGambleInfo("Incantation", GambleType.Bad);
                         player.SetField("incantation", 1);
-                        return;
+                        break;
                     case 14:
                         player.PrintGambleInfo("Give all human $500", GambleType.Excellent);
                         player.WinCash(500);
@@ -475,19 +544,19 @@ namespace INF3
                                 item.GamblerText("Player " + player.Name + " give you $500.", new Vector3(1, 1, 1), new Vector3(0, 1, 0), 1, 0.85f);
                             }
                         }
-                        return;
+                        break;
                     case 15:
                         player.PrintGambleInfo("You infected.", GambleType.Bad);
                         player.SelfExploed();
-                        return;
+                        break;
                     case 16:
                         player.PrintGambleInfo("You lose all weapon.", GambleType.Bad);
                         player.TakeAllWeapons();
-                        return;
+                        break;
                     case 17:
                         player.PrintGambleInfo("You win riotshield in your back.", GambleType.Good);
                         player.Call("attachshieldmodel", "weapon_riot_shield_mp", "tag_shield_back");
-                        return;
+                        break;
                     case 18:
                         player.PrintGambleInfo("Surprise!", GambleType.Terrible);
                         foreach (var item in Utility.GetPlayers())
@@ -498,12 +567,77 @@ namespace INF3
                                 item.SetField("aiz_point", 0);
                                 if (player != item)
                                 {
-                                    item.GamblerText("Surprise!", new Vector3(1, 1, 1), new Vector3(0, 0, 0), 1, 0.85f);
+                                    item.GamblerText("Surprise!", new Vector3(0, 0, 0), new Vector3(1, 1, 1), 1, 0);
                                 }
                             }
                         }
-                        return;
+                        break;
+                    case 19:
+                        player.PrintGambleInfo("You win a random Perk-a-Cola.", GambleType.Good);
+                        player.RandomPerkCola();
+                        break;
+                    case 20:
+                        player.PrintGambleInfo("You lose all Perk-a-Cola.", GambleType.Terrible);
+                        PerkCola.TakeAllPerkCola(player);
+                        break;
+                    case 21:
+                        player.PrintGambleInfo("Other humans die or you die after 5 second.", GambleType.Terrible);
+                        foreach (var item in Utility.GetPlayers())
+                        {
+                            if (item.GetTeam() == "allies" && item.IsAlive)
+                            {
+                                if (player != item)
+                                {
+                                    item.GamblerText("You die or " + player.Name + " die after 5 second.", new Vector3(0, 0, 0), new Vector3(1, 1, 1), 1, 0);
+                                }
+
+                                item.AfterDelay(1000, ex => item.Call("iprintlnbold", "^05"));
+                                item.AfterDelay(1000, ex => item.Call("playlocalsound", "ui_mp_nukebomb_timer"));
+                                item.AfterDelay(2000, ex => item.Call("iprintlnbold", "^04"));
+                                item.AfterDelay(2000, ex => item.Call("playlocalsound", "ui_mp_nukebomb_timer"));
+                                item.AfterDelay(3000, ex => item.Call("iprintlnbold", "^03"));
+                                item.AfterDelay(3000, ex => item.Call("playlocalsound", "ui_mp_nukebomb_timer"));
+                                item.AfterDelay(4000, ex => item.Call("iprintlnbold", "^02"));
+                                item.AfterDelay(4000, ex => item.Call("playlocalsound", "ui_mp_nukebomb_timer"));
+                                item.AfterDelay(5000, ex => item.Call("iprintlnbold", "^01"));
+                                item.AfterDelay(5000, ex => item.Call("playlocalsound", "ui_mp_nukebomb_timer"));
+                            }
+                        }
+                        player.AfterDelay(6000, ex =>
+                        {
+                            switch (Utility.Rng.Next(3))
+                            {
+                                case 0:
+                                case 1:
+                                    foreach (var item in Utility.GetPlayers())
+                                    {
+                                        if (player != item && item.GetTeam() == "allies")
+                                            item.GamblerText(player.Name + " die. You live!", new Vector3(1, 1, 1), new Vector3(0, 1, 0), 1, 0.85f);
+                                    }
+                                    player.PrintGambleInfo("You die!", GambleType.Bad);
+                                    player.SelfExploed();
+                                    break;
+                                case 2:
+                                    foreach (var item in Utility.GetPlayers())
+                                    {
+                                        if (player != item && item.GetTeam() == "allies")
+                                        {
+                                            item.GamblerText("You die! And " + player.Name + " live!", new Vector3(0, 0, 0), new Vector3(1, 1, 1), 1, 0);
+                                            item.SelfExploed();
+                                        }
+                                    }
+                                    player.PrintGambleInfo("You live! And you have all Perk-a-Cola!", GambleType.Excellent);
+                                    player.WinCash(1000);
+                                    while (player.GetField<int>("aiz_perks") < 11)
+                                    {
+                                        player.RandomPerkCola();
+                                    }
+                                    break;
+                            }
+                        });
+                        break;
                 }
+                player.SetField("isgambling", 0);
             });
         }
 
@@ -535,7 +669,7 @@ namespace INF3
                     Function.Call("iprintln", player.Name + " gambled - ^3" + text);
                     break;
                 case GambleType.Terrible:
-                    player.GamblerText(text, new Vector3(0, 0, 0), new Vector3(1, 1, 1), 1, 0.85f);
+                    player.GamblerText(text, new Vector3(0, 0, 0), new Vector3(1, 1, 1), 1, 0);
                     Function.SetEntRef(-1);
                     Function.Call("iprintln", player.Name + " gambled - ^0" + text);
                     break;
@@ -547,8 +681,10 @@ namespace INF3
             player.GamblerText("Comming Soon!", new Vector3(1, 1, 1), new Vector3(0.3f, 0.3f, 0.9f), 1, 0.85f);
         }
 
-        private static void RandomPerk(this Entity player, Entity ent)
+        private static void RandomPerkCola(this Entity player)
         {
+            if (player.GetField<int>("aiz_perks") == 11)
+                return;
             var perk = PerkCola.RandomPerk();
             while (PerkCola.HasPerkCola(player, perk))
             {

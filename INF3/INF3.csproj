@@ -46,9 +46,11 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AIZMain.cs" />
-    <Compile Include="BounsDrops.cs" />
+    <Compile Include="PowerUp.cs" />
     <Compile Include="BoxFunction.cs" />
     <Compile Include="Effects.cs" />
+    <Compile Include="Exo.cs" />
+    <Compile Include="GobbleGum.cs" />
     <Compile Include="Hud.cs" />
     <Compile Include="MapEdit.cs" />
     <Compile Include="PerkFunction.cs" />

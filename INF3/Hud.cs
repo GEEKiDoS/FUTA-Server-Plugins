@@ -143,24 +143,19 @@ namespace INF3
 
         public static HudElem PerkHudNoEffect(this Entity player, string shader)
         {
-            player.Call("setblurforplayer", 6, 0.5f);
             int perksAmount = player.GetField<int>("aiz_perks") - 1;
             int MultiplyTimes = 28 * perksAmount;
 
             var hudshader = HudElem.NewClientHudElem(player);
-            player.AfterDelay(700, e =>
-            {
-                player.Call("setblurforplayer", 0, 0.3f);
-                hudshader.AlignX = "center";
-                hudshader.VertAlign = "middle";
-                hudshader.AlignY = "middle";
-                hudshader.HorzAlign = "center";
-                hudshader.X = -410 + MultiplyTimes;
-                hudshader.Y = 160;
-                hudshader.Foreground = true;
-                hudshader.SetShader(shader, 25, 25);
-                hudshader.Alpha = 1;
-            });
+            hudshader.AlignX = "center";
+            hudshader.VertAlign = "middle";
+            hudshader.AlignY = "middle";
+            hudshader.HorzAlign = "center";
+            hudshader.X = -410 + MultiplyTimes;
+            hudshader.Y = 160;
+            hudshader.Foreground = true;
+            hudshader.SetShader(shader, 25, 25);
+            hudshader.Alpha = 1;
 
             return hudshader;
         }
@@ -251,7 +246,7 @@ namespace INF3
 
             HudElem credits2 = HudElem.CreateFontString(player, "hudbig", 0.6f);
             credits2.SetPoint("CENTER", "BOTTOM", 0, -90);
-            credits2.Call("settext", "Vesion 0.2.2 Beta. Code in: https://github.com/A2ON");
+            credits2.Call("settext", "Vesion 0.3.2 Beta. Code in: https://github.com/A2ON");
             credits2.Alpha = 0f;
             credits2.SetField("glowcolor", new Vector3(1f, 0.5f, 1f));
             credits2.GlowAlpha = 1f;
@@ -385,6 +380,71 @@ namespace INF3
                     player.SetField("xpUpdateTotal", 0);
                 }
             });
+        }
+
+        public static void BonusDropTakeHud(Entity player, string text, string shader)
+        {
+            var hud = HudElem.NewTeamHudElem("allies");
+            hud.HorzAlign = "center";
+            hud.VertAlign = "middle";
+            hud.AlignX = "center";
+            hud.AlignY = "middle";
+            hud.Font = "objective";
+            hud.FontScale = 2;
+            hud.Alpha = 1;
+            hud.Color = new Vector3(1, 1, 1);
+            hud.GlowColor = new Vector3(1f, 0.3f, 0.3f);
+            hud.GlowAlpha = 0.85f;
+            hud.X = 0;
+            hud.Y = 140;
+
+            hud.Call("moveovertime", 2);
+            hud.Call("fadeovertime", 2);
+            hud.Y = 80;
+            hud.Alpha = 0;
+
+            var icon = HudElem.NewTeamHudElem("allies");
+            icon.HorzAlign = "center";
+            icon.VertAlign = "middle";
+            icon.AlignX = "center";
+            icon.AlignY = "middle";
+            icon.X = 0;
+            icon.Y = 125;
+            icon.Foreground = true;
+            icon.SetShader(shader, 30, 30);
+            icon.Alpha = 1;
+
+            icon.Call("moveovertime", 2);
+            icon.Call("fadeovertime", 2);
+            icon.Y = 65;
+            icon.Alpha = 0;
+
+            player.AfterDelay(2000, e =>
+            {
+                hud.Call("destroy");
+                icon.Call("destroy");
+            });
+        }
+
+        public static HudElem BonusDropHud(string shader, float xpoint)
+        {
+            var icon = HudElem.NewTeamHudElem("allies");
+            icon.HorzAlign = "center";
+            icon.VertAlign = "middle";
+            icon.AlignX = "center";
+            icon.AlignY = "middle";
+            icon.Foreground = true;
+            icon.SetShader(shader, 30, 30);
+            icon.Alpha = 1;
+            icon.Y = 200;
+            icon.X = xpoint;
+
+            return icon;
+        }
+
+        public static void GobbleGumHud(this Entity player,string head,string text)
+        {
+
         }
     }
 }

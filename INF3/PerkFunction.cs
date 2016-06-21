@@ -59,7 +59,7 @@ namespace INF3
                     }
                     WidowsWineThink(attacker, player.Origin);
                 }
-                if (weapon=="frag_grenade_mp" && attacker.GetField<int>("perk_widow") == 1)
+                if (attacker.GetField<int>("perk_widow") == 1 && !mod.Contains("BULLET"))
                 {
                     player.SetField("speed", 0.5f);
                 }
@@ -76,8 +76,12 @@ namespace INF3
                     player.Health = player.GetField<int>("maxhealth");
                     ElectricCherryThink(player);
                 }
-                if (player.GetField<int>("perk_widow") == 1 && mod=="MOD_MELEE")
+                if (player.GetField<int>("perk_widow") == 1 && mod == "MOD_MELEE")
                 {
+                    if (player.GetField<int>("perk_juggernog") == 0)
+                    {
+                        player.Health += damage / 2;
+                    }
                     attacker.SetField("speed", 0.5f);
                 }
             }

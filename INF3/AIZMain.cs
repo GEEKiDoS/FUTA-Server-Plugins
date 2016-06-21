@@ -18,6 +18,10 @@ namespace INF3
             Utility.PreCacheShader("cardicon_bulb");
             Utility.PreCacheShader("cardicon_award_jets");
             Utility.PreCacheShader("cardicon_bear");
+            Utility.PreCacheShader("dpad_killstreak_ac130");
+
+            //PowerUp
+            Utility.PreCacheShader("dpad_killstreak_nuke");
 
             //Perks
             Utility.PreCacheShader("specialty_finalstand"); //Quick Revive
@@ -43,15 +47,23 @@ namespace INF3
 
             Call("setdvar", "scr_aiz_power", 1);
 
-            //Bouns Drops
-            Call("setdvar", "bouns_double_points", 0);
-            Call("setdvar", "bouns_insta_kill", 0);
-            Call("setdvar", "bouns_fire_sale", 0);
-            Call("setdvar", "bouns_zombie_blood", 0);
+            //Power-Up
+            Call("setdvar", "bonus_double_points", 0);
+            Call("setdvar", "bonus_insta_kill", 0);
+            Call("setdvar", "bonus_fire_sale", 0);
+
+            //GobbleGum
+            Call("setdvar", "global_gobble_temporalgift", 0);
 
             PlayerConnected += player =>
             {
+                player.SetField("aiz_perks", 0);
                 player.SetField("aiz_perkhuds", new Parameter(new List<HudElem>()));
+
+                player.SetField("aiz_cash", 500);
+                player.SetField("aiz_point", 0);
+
+                player.SetField("isgambling", 0);
 
                 OnSpawned(player);
                 player.SpawnedPlayer += () => OnSpawned(player);
@@ -91,6 +103,51 @@ namespace INF3
 
                 player.OnNotify("weapon_fired", delegate (Entity self, Parameter weapon)
                 {
+                    if (weapon.As<string>()=="uav_strike_marker_mp")
+                    {
+                        if (player.GetField<int>("perk_vultrue")==1)
+                        {
+                            Vector3 vector = Call<Vector3>("anglestoforward", new Parameter[] { player.Call<Vector3>("getplayerangles", new Parameter[0]) });
+                            Vector3 dsa = new Vector3(vector.X * 1000000f, vector.Y * 1000000f, vector.Z * 1000000f);
+                            switch (Utility.Rng.Next(5))
+                            {
+                                case 0:
+                                    Call("magicbullet", new Parameter[] { "stinger_mp", player.Call<Vector3>("gettagorigin", new Parameter[] { "tag_weapon_left" }), dsa, self });
+                                    break;
+                                case 1:
+                                    Call("magicbullet", new Parameter[] { "javelin_mp", player.Call<Vector3>("gettagorigin", new Parameter[] { "tag_weapon_left" }), dsa, self });
+                                    break;
+                                case 2:
+                                    AfterDelay(0, () => Call("magicbullet", new Parameter[] { "ac130_105mm_mp", player.Call<Vector3>("gettagorigin", new Parameter[] { "tag_weapon_left" }), dsa, self }));
+                                    break;
+                                case 3:
+                                    AfterDelay(0, () => Call("magicbullet", new Parameter[] { "remote_tank_projectile_mp", player.Call<Vector3>("gettagorigin", new Parameter[] { "tag_weapon_left" }), dsa, self }));
+                                    break;
+                                case 4:
+                                    AfterDelay(0, () => Call("magicbullet", new Parameter[] { "ims_projectile_mp", player.Call<Vector3>("gettagorigin", new Parameter[] { "tag_weapon_left" }), dsa, self }));
+                                    break;
+                            }
+                        }
+                        else
+                        {
+                            Vector3 vector = Call<Vector3>("anglestoforward", new Parameter[] { player.Call<Vector3>("getplayerangles", new Parameter[0]) });
+                            Vector3 dsa = new Vector3(vector.X * 1000000f, vector.Y * 1000000f, vector.Z * 1000000f);
+                            switch (Utility.Rng.Next(3))
+                            {
+                                case 0:
+                                    Call("magicbullet", new Parameter[] { "rpg_mp", player.Call<Vector3>("gettagorigin", new Parameter[] { "tag_weapon_left" }), dsa, self });
+                                    break;
+                                case 1:
+                                    Call("magicbullet", new Parameter[] { "iw5_smaw_mp", player.Call<Vector3>("gettagorigin", new Parameter[] { "tag_weapon_left" }), dsa, self });
+                                    break;
+                                case 2:
+                                    AfterDelay(0, () => Call("magicbullet", new Parameter[] { "sam_projectile_mp", player.Call<Vector3>("gettagorigin", new Parameter[] { "tag_weapon_left" }), dsa, self }));
+                                    AfterDelay(200, () => Call("magicbullet", new Parameter[] { "sam_projectile_mp", player.Call<Vector3>("gettagorigin", new Parameter[] { "tag_weapon_left" }), dsa, self }));
+                                    AfterDelay(400, () => Call("magicbullet", new Parameter[] { "sam_projectile_mp", player.Call<Vector3>("gettagorigin", new Parameter[] { "tag_weapon_left" }), dsa, self }));
+                                    break;
+                            }
+                        }
+                    }
                 });
 
                 #endregion
@@ -98,7 +155,7 @@ namespace INF3
                 var welcomemessages = new List<string>
                 {
                     "Welcome " + player.Name,
-                    "Project Cirno (INF3) v0.2.2 Beta",
+                    "Project Cirno (INF3) v0.3.2 Beta",
                     "Create by A2ON.",
                     "Source code in: https://github.com/A2ON/",
                     "Current Map: "+Utility.MapName,
@@ -112,9 +169,9 @@ namespace INF3
                 player.Credits();
 
                 //debug
-                OnNotify("changeclass", (cmd, choice) =>
+                OnNotify("menuResponse", (id, currentclass) =>
                 {
-                    Log.Debug(choice.As<string>());
+                    Log.Debug(currentclass.As<string>());
                 });
             };
         }
@@ -122,9 +179,6 @@ namespace INF3
         public void OnSpawned(Entity player)
         {
             player.Call("freezecontrols", false);
-
-            player.SetField("aiz_cash", 500);
-            player.SetField("aiz_point", 0);
 
             player.OnInterval(100, e =>
             {
@@ -144,11 +198,9 @@ namespace INF3
             player.SetField("usingtelepot", 0);
             player.SetField("xpUpdateTotal", 0);
 
-            player.SetField("aiz_perks", 0);
-
             if (player.GetTeam() == "allies")
             {
-                PerkCola.ResetPerks(player);
+                PerkCola.ResetPerkCola(player);
 
                 player.SetField("incantation", 0);
 
@@ -190,168 +242,26 @@ namespace INF3
             }
         }
 
-        #region Player Model
-
-        public static string GetSniperEnv(string mapname)
-        {
-            switch (mapname)
-            {
-                case "mp_alpha":
-                case "mp_bootleg":
-                case "mp_exchange":
-                case "mp_hardhat":
-                case "mp_interchange":
-                case "mp_mogadishu":
-                case "mp_paris":
-                case "mp_plaza2":
-                case "mp_underground":
-                case "mp_cement":
-                case "mp_hillside_ss":
-                case "mp_overwatch":
-                case "mp_terminal_cls":
-                case "mp_aground_ss":
-                case "mp_courtyard_ss":
-                case "mp_meteora":
-                case "mp_morningwood":
-                case "mp_qadeem":
-                case "mp_crosswalk_ss":
-                case "mp_italy":
-                case "mp_boardwalk":
-                case "mp_roughneck":
-                case "mp_nola":
-                    return "urban";
-                case "mp_dome":
-                case "mp_restrepo_ss":
-                case "mp_burn_ss":
-                case "mp_seatown":
-                case "mp_shipbreaker":
-                case "mp_moab":
-                    return "desert";
-                case "mp_bravo":
-                case "mp_carbon":
-                case "mp_park":
-                case "mp_six_ss":
-                case "mp_village":
-                case "mp_lambeth":
-                    return "woodland";
-                case "mp_radar":
-                    return "arctic";
-            }
-            return "";
-        }
-        public static string GetModelEnv(string mapname)
-        {
-            switch (mapname)
-            {
-                case "mp_alpha":
-                case "mp_dome":
-                case "mp_paris":
-                case "mp_plaza2":
-                case "mp_terminal_cls":
-                case "mp_bootleg":
-                case "mp_restrepo_ss":
-                case "mp_hillside_ss":
-                    return "russian_urban";
-                case "mp_exchange":
-                case "mp_hardhat":
-                case "mp_underground":
-                case "mp_cement":
-                case "mp_overwatch":
-                case "mp_nola":
-                case "mp_boardwalk":
-                case "mp_roughneck":
-                case "mp_crosswalk_ss":
-                    return "russian_air";
-                case "mp_interchange":
-                case "mp_lambeth":
-                case "mp_six_ss":
-                case "mp_moab":
-                case "mp_park":
-                    return "russian_woodland";
-                case "mp_radar":
-                    return "russian_arctic";
-                case "mp_seatown":
-                case "mp_aground_ss":
-                case "mp_burn_ss":
-                case "mp_courtyard_ss":
-                case "mp_italy":
-                case "mp_meteora":
-                case "mp_morningwood":
-                case "mp_qadeem":
-                    return "henchmen";
-            }
-
-            return string.Empty;
-        }
-
-        public static string[] icMaps = new string[]
-        {
-                "mp_seatown",
-                "mp_aground_ss",
-                "mp_courtyard_ss",
-                "mp_italy",
-                "mp_meteora",
-                "mp_morningwood",
-                "mp_qadeem",
-                "mp_burn_ss"
-        };
-        public static string[] africaMaps = new string[]
-        {
-                "mp_bravo",
-                "mp_carbon",
-                "mp_mogadishu",
-                "mp_village",
-                "mp_shipbreaker",
-        };
-
         private void SetZombieModel(Entity player)
         {
-            string str = GetModelEnv(Utility.MapName);
-            string str2 = GetSniperEnv(Utility.MapName);
-
-            if (Call<int>("getteamscore", "axis") == 1)
+            if (Utility.africaMaps.Contains(Utility.MapName))
             {
-                if (Utility.MapName == "mp_radar")
-                {
-                    player.Call("setmodel", "mp_body_ally_ghillie_desert_sniper");
-                }
-                else
-                {
-                    if (africaMaps.Contains(Utility.MapName))
-                    {
-                        player.Call("setmodel", "mp_body_opforce_ghillie_africa_militia_sniper");
-                    }
-                    else
-                    {
-                        player.Call("setmodel", "mp_body_ally_ghillie_" + str2 + "_sniper");
-                    }
-                }
-                player.Call("setviewmodel", "viewhands_iw5_ghillie_" + str2);
+                player.Call("setmodel", "mp_body_opforce_africa_militia_sniper");
             }
             else
             {
-                if (africaMaps.Contains(Utility.MapName))
-                {
-                    player.Call("setmodel", "mp_body_opforce_africa_militia_sniper");
-                }
-                else
-                {
-                    player.Call("setmodel", "mp_body_opforce_" + str + "_sniper");
-                }
+                player.Call("setmodel", "mp_body_opforce_" + Utility.GetModelEnv(Utility.MapName) + "_sniper");
+            }
 
-
-                if (africaMaps.Contains(Utility.MapName))
-                {
-                    player.Call("setviewmodel", "viewhands_militia");
-                }
-                else if (!icMaps.Contains(Utility.MapName))
-                {
-                    player.Call("setviewmodel", "viewhands_op_force");
-                }
+            if (Utility.africaMaps.Contains(Utility.MapName))
+            {
+                player.Call("setviewmodel", "viewhands_militia");
+            }
+            else if (!Utility.icMaps.Contains(Utility.MapName))
+            {
+                player.Call("setviewmodel", "viewhands_op_force");
             }
         }
-
-        #endregion
 
         public override void OnPlayerDamage(Entity player, Entity inflictor, Entity attacker, int damage, int dFlags, string mod, string weapon, Vector3 point, Vector3 dir, string hitLoc)
         {
@@ -360,7 +270,7 @@ namespace INF3
 
             if (attacker.GetTeam() == "allies")
             {
-                if (Call<int>("getdvarint", "bouns_insta_kill") == 1)
+                if (Call<int>("getdvarint", "bonus_insta_kill") == 1)
                 {
                     player.Health = 3;
                     return;
@@ -378,7 +288,12 @@ namespace INF3
 
         public override void OnPlayerKilled(Entity player, Entity inflictor, Entity attacker, int damage, string mod, string weapon, Vector3 dir, string hitLoc)
         {
-            PerkCola.ResetPerks(player);
+            if (mod == "MOD_HEAD_SHOT")
+            {
+                player.Call("detachall");
+            }
+
+            PerkCola.ResetPerkCola(player);
 
             if (attacker == null || !attacker.IsPlayer || attacker.GetTeam() == player.GetTeam())
                 return;
@@ -387,50 +302,45 @@ namespace INF3
             {
                 if (player.GetField<int>("rtd_flag") == 1)
                 {
-                    if (Call<int>("getdvarint", "bouns_double_points") == 1)
+                    if (Call<int>("getdvarint", "bonus_double_points") == 1)
                     {
-                        attacker.WinCash(400);
-                        attacker.WinPoint(4);
+                        attacker.WinCash(400); 
                     }
                     else
                     {
                         attacker.WinCash(200);
-                        attacker.WinPoint(2);
                     }
                 }
                 else if (player.GetField<int>("rtd_king") == 1)
                 {
-                    if (Call<int>("getdvarint", "bouns_double_points") == 1)
+                    if (Call<int>("getdvarint", "bonus_double_points") == 1)
                     {
                         attacker.WinCash(1000);
-                        attacker.WinPoint(10);
                     }
                     else
                     {
                         attacker.WinCash(500);
-                        attacker.WinPoint(5);
                     }
                 }
                 else
                 {
-                    if (Call<int>("getdvarint", "bouns_double_points") == 1)
+                    if (Call<int>("getdvarint", "bonus_double_points") == 1)
                     {
                         attacker.WinCash(200);
-                        attacker.WinPoint(2);
                     }
                     else
                     {
                         attacker.WinCash(100);
-                        attacker.WinPoint(1);
                     }
                 }
+                attacker.WinPoint(1);
                 if (player.GetField<int>("zombie_incantation") == 1)
                 {
                     attacker.Health = 1000;
                     AfterDelay(100, () =>
                     {
                         attacker.RadiusExploed(player.Origin);
-                        player.GamblerText("Incantation!", new Vector3(0, 0, 0), new Vector3(1, 1, 1), 1, 0.7f);
+                        player.GamblerText("Incantation!", new Vector3(0, 0, 0), new Vector3(1, 1, 1), 1, 0);
                     });
                     AfterDelay(200, () => attacker.Health = attacker.GetField<int>("maxhealth"));
                 }
@@ -443,13 +353,9 @@ namespace INF3
                     AfterDelay(100, () =>
                     {
                         attacker.RadiusExploed(player.Origin);
-                        player.GamblerText("Incantation!", new Vector3(0, 0, 0), new Vector3(1, 1, 1), 1, 0.7f);
+                        player.GamblerText("Incantation!", new Vector3(0, 0, 0), new Vector3(1, 1, 1), 1, 0);
                     });
                     AfterDelay(200, () => attacker.Health = attacker.GetField<int>("maxhealth"));
-                }
-                if (Call<int>("getdvarint", "bouns_zombie_blood") == 1)
-                {
-                    player.Call("show");
                 }
             }
         }

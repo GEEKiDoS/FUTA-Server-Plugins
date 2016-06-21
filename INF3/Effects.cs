@@ -42,5 +42,10 @@ namespace INF3
             Function.Call("playfx", Function.Call<int>("loadfx", "explosions/tanker_explosion"), player.Origin);
             player.Call("playsoundasmaster", "exp_suitcase_bomb_main");
         }
+        public static void AcidDamage(this Entity player, Entity attacker, int damage)
+        {
+            player.Call("finishplayerdamage", player, attacker, damage, 0, 0, "bomb_site_mp", player.Origin, "MOD_EXPLOSIVE", 0);
+            player.Call("iprintlnbold", "^1You are into the Spider acid aera. Get out from here right now!");
+        }
     }
 }
