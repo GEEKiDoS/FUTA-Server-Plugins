@@ -13,13 +13,11 @@ namespace INF3
         public static Entity _nullCollision;
 
         private static string _currentfile;
-        private int curObjID;
-        private static List<Entity> usables = new List<Entity>();
 
-        private static List<int> _perkboxs = new List<int>();
-        private static bool _haspowerbox = false;
-
-        public static List<Entity> doors = new List<Entity>();
+        public static bool HasPower = false;
+        public static List<BoxEntity> boxents = new List<BoxEntity>();
+        public static List<PerkColaType> spawnedPerkColas = new List<PerkColaType>();
+        public static List<Door> doors = new List<Door>();
 
         public MapEdit()
         {
@@ -31,445 +29,14 @@ namespace INF3
             PlayerConnected += player =>
             {
                 player.Call("notifyonplayercommand", "triggeruse", "+activate");
-                player.OnNotify("triggeruse", ent => UsableThink(player));
+                player.OnNotify("triggeruse", ent => UsableThink(ent));
+                UsableHud(player);
 
                 player.SetField("attackeddoor", 0);
-                player.SetField("usingtelepot", 0);
-
-                UsableHud(player);
-                PerkHud(player);
-
-                TrampolineThink(player);
+                player.SetField("usingteleport", 0);
             };
 
             InitMapEdit();
-        }
-
-        private void MakeUsable(Entity ent, string type, int range)
-        {
-            ent.SetField("usabletype", type);
-            ent.SetField("range", range);
-            usables.Add(ent);
-        }
-
-        #region UsableHud
-
-        private string DoorText(Entity door, Entity player)
-        {
-            int hp = door.GetField<int>("hp");
-            int maxhp = door.GetField<int>("maxhp");
-            if (player.GetTeam() == "allies")
-            {
-                switch (door.GetField<string>("state"))
-                {
-                    case "open":
-                        return "Door is Open. Press ^3[{+activate}] ^7to close it. (" + hp + "/" + maxhp + ")";
-                    case "close":
-                        return "Door is Closed. Press ^3[{+activate}] ^7to open it. (" + hp + "/" + maxhp + ")";
-                    case "broken":
-                        return "^1Door is Broken.";
-                }
-            }
-            else if (player.GetTeam() == "axis")
-            {
-                switch (door.GetField<string>("state"))
-                {
-                    case "open":
-                        return "Door is Open.";
-                    case "close":
-                        return "Press ^3[{+activate}] ^7to attack the door.";
-                    case "broken":
-                        return "^1Door is Broken";
-                }
-            }
-            return "";
-        }
-
-        private string PayDoorText(Entity door, Entity player)
-        {
-            if (player.GetTeam() == "allies")
-            {
-                if (door.GetField<string>("state") == "close")
-                {
-                    return "Press ^3[{+activate}] ^7to cleanup barriers. [Cost: ^2$^3" + door.GetField<int>("pay") + "^7]";
-                }
-            }
-            return "";
-        }
-
-        private string TurretText()
-        {
-            return "Press ^3[{+activate}] ^7to use turret.";
-        }
-
-        private string SentryText()
-        {
-            return "Press ^3[{+activate}] ^7to use sentey.";
-        }
-
-        private string GLText()
-        {
-            return "Press ^3[{+activate}] ^7to use grenade launcher.";
-        }
-
-        private string SAMText()
-        {
-            return "Press ^3[{+activate}] ^7to use SAM turret.";
-        }
-
-        private string ZiplineText(Entity ent)
-        {
-            if (ent.GetField<string>("state") == "idle")
-            {
-                return "Press ^3[{+activate}] ^7to use zipline.";
-            }
-            return "";
-        }
-
-        private string TeleporterText(Entity player)
-        {
-            if (player.GetTeam() == "allies")
-            {
-                if (Call<int>("getdvarint", "scr_aiz_power") == 0 || Call<int>("getdvarint", "scr_aiz_power") == 2)
-                {
-                    return "Requires Electricity";
-                }
-                if (player.GetField<int>("usingtelepot") == 0)
-                {
-                    if (Call<int>("getdvarint", "bonus_fire_sale") == 1)
-                    {
-                        return "Press ^3[{+activate}] ^7to use teleporter. [Cost: ^2$^610^7]";
-                    }
-                    return "Press ^3[{+activate}] ^7to use teleporter. [Cost: ^2$^3500^7]";
-                }
-            }
-            return "";
-        }
-
-        private string TrampolineText()
-        {
-            return "Press ^3[{+gostand}] ^7to boost jump.";
-        }
-
-        private string PowerText(Entity player)
-        {
-            if (player.GetTeam() == "allies")
-            {
-                if (Call<int>("getdvarint", "scr_aiz_power") == 0)
-                {
-                    return "Press ^3[{+activate}] ^7to activate the electricity. [Cost: ^2$^3700^7]";
-                }
-            }
-            return "";
-        }
-
-        private string AmmoText(Entity player)
-        {
-            if (player.GetTeam() == "allies")
-            {
-                if (Call<int>("getdvarint", "bonus_fire_sale") == 1)
-                {
-                    return "Press ^3[{+activate}] ^7to buy ammo. [Cost: ^2$^610^7]";
-                }
-                return "Press ^3[{+activate}] ^7to buy ammo. [Cost: ^2$^3100^7]";
-            }
-            return "";
-        }
-
-        private string GamblerText(Entity ent, Entity player)
-        {
-            if (player.GetTeam() == "allies")
-            {
-                if (ent.GetField<string>("state") == "idle" && player.GetField<int>("isgambling") == 0)
-                {
-                    if (Call<int>("getdvarint", "bonus_fire_sale") == 1)
-                    {
-                        return "Press ^3[{+activate}] ^7to gamble. [Cost: ^2$^610^7]";
-                    }
-                    return "Press ^3[{+activate}] ^7to gamble. [Cost: ^2$^3500^7]";
-                }
-            }
-            return "";
-        }
-
-        private string AirstrikeText(Entity player)
-        {
-            if (player.GetTeam() == "allies")
-            {
-                if (Call<int>("getdvarint", "scr_aiz_power") == 0 || Call<int>("getdvarint", "scr_aiz_power") == 2)
-                {
-                    return "Requires Electricity";
-                }
-                return "Press ^3[{+activate}] ^7to buy random airstrike. [Cost: ^310 ^5bonus Points^7]";
-            }
-            return "";
-        }
-
-        private string PerkText(Entity player, PerkCola perk)
-        {
-            if (player.GetTeam() == "allies")
-            {
-                if (Call<int>("getdvarint", "scr_aiz_power") == 0 || Call<int>("getdvarint", "scr_aiz_power") == 2)
-                {
-                    return "Requires Electricity";
-                }
-                return PerkCola.PerkBoxHintString(perk);
-            }
-            return "";
-        }
-
-        private string RandomPerkText(Entity player)
-        {
-            if (player.GetTeam() == "allies")
-            {
-                if (Call<int>("getdvarint", "scr_aiz_power") == 0 || Call<int>("getdvarint", "scr_aiz_power") == 2)
-                {
-                    return "Requires Electricity";
-                }
-                return "Press ^3[{+activate}] ^7to use Der Wunderfizz. [Cost: ^310 ^5bonus Points^7]";
-            }
-            return "";
-        }
-
-        private string GobbleGumText(Entity player)
-        {
-            if (player.GetTeam() == "allies")
-            {
-                return "Press ^3[{+activate}] ^7to buy a Gobble Gum. [Cost: ^35 ^5bonus Points^7]";
-            }
-            return "";
-        }
-
-        private void UsableHud(Entity player)
-        {
-            HudElem message = HudElem.CreateFontString(player, "big", 1.5f);
-            message.SetPoint("CENTER", "CENTER", 1, 115);
-            message.Alpha = 0.65f;
-
-            OnInterval(100, () =>
-            {
-                try
-                {
-                    var flag = false;
-                    foreach (var ent in usables)
-                    {
-                        if (player.Origin.DistanceTo(ent.Origin) >= ent.GetField<int>("range"))
-                        {
-                            continue;
-                        }
-                        switch (ent.GetField<string>("usabletype"))
-                        {
-                            case "door":
-                                message.SetText(DoorText(ent, player));
-                                break;
-                            case "paydoor":
-                                message.SetText(PayDoorText(ent, player));
-                                break;
-                            case "turret":
-                                message.SetText(TurretText());
-                                break;
-                            case "sentry":
-                                message.SetText(SentryText());
-                                break;
-                            case "gl":
-                                message.SetText(GLText());
-                                break;
-                            case "sam":
-                                message.SetText(SAMText());
-                                break;
-                            case "zipline":
-                                message.SetText(ZiplineText(ent));
-                                break;
-                            case "teleporter":
-                                message.SetText(TeleporterText(player));
-                                break;
-                            case "trampoline":
-                                message.SetText(TrampolineText());
-                                break;
-                            case "power":
-                                message.SetText(PowerText(player));
-                                break;
-                            case "ammo":
-                                message.SetText(AmmoText(player));
-                                break;
-                            case "gambler":
-                                message.SetText(GamblerText(ent, player));
-                                break;
-                            case "airstrike":
-                                message.SetText(AirstrikeText(player));
-                                break;
-                            case "perk":
-                                message.SetText(PerkText(player, ent.GetField<PerkCola>("perk")));
-                                break;
-                            case "randomperk":
-                                message.SetText(RandomPerkText(player));
-                                break;
-                            case "gobblegum":
-                                message.SetText(GobbleGumText(player));
-                                break;
-                        }
-                        flag = true;
-                    }
-                    if (!flag)
-                    {
-                        message.SetText("");
-                    }
-                }
-                catch (Exception)
-                {
-                    message.SetText("");
-                }
-
-                return true;
-            });
-        }
-
-        #endregion
-
-        #region Perk-a-Cola Hud
-
-        private void PerkHud(Entity player)
-        {
-            HudElem hud = HudElem.NewClientHudElem(player);
-            hud.Alpha = 0f;
-
-            OnInterval(100, () =>
-            {
-                try
-                {
-                    var flag = false;
-                    foreach (var ent in usables)
-                    {
-                        if (player.Origin.DistanceTo(ent.Origin) >= 50)
-                        {
-                            continue;
-                        }
-                        if (ent.GetField<string>("usabletype") == "perk")
-                        {
-                            var perk = ent.GetField<PerkCola>("perk");
-                            hud.SetShader(perk.PerkIcon, 15, 15);
-                            hud.X = ent.Origin.X;
-                            hud.Y = ent.Origin.Y;
-                            hud.Z = ent.Origin.Z + 50f;
-                            hud.Call("setwaypoint", ent.Origin);
-                            hud.Alpha = 0.7f;
-                        }
-
-                        flag = true;
-                    }
-                    if (!flag)
-                    {
-                        hud.Alpha = 0f;
-                    }
-                }
-                catch (Exception)
-                {
-                    hud.Alpha = 0f;
-                }
-
-                return true;
-            });
-        }
-
-        #endregion
-
-        private void UsableThink(Entity player)
-        {
-            try
-            {
-                foreach (var ent in usables)
-                {
-                    if (player.Origin.DistanceTo(ent.Origin) < ent.GetField<int>("range"))
-                    {
-                        if (player.IsAlive && !player.CurrentWeapon.Contains("ac130") && !player.CurrentWeapon.Contains("killstreak") && !player.CurrentWeapon.Contains("remote"))
-                        {
-                            switch (ent.GetField<string>("usabletype"))
-                            {
-                                case "door":
-                                    BoxFunction.UseDoor(ent, player);
-                                    break;
-                                case "paydoor":
-                                    BoxFunction.UsePayDoor(ent, player);
-                                    break;
-                                case "turret":
-                                    break;
-                                case "sentry":
-                                    break;
-                                case "gl":
-                                    break;
-                                case "sam":
-                                    break;
-                                case "zipline":
-                                    BoxFunction.UseZipline(ent, player);
-                                    break;
-                                case "teleporter":
-                                    if (Call<int>("getdvarint", "scr_aiz_power") == 1)
-                                    {
-                                        BoxFunction.UseTeleporter(ent, player);
-                                    }
-                                    break;
-                                case "power":
-                                    BoxFunction.UsePower(ent, player);
-                                    break;
-                                case "ammo":
-                                    BoxFunction.UseAmmo(player);
-                                    break;
-                                case "gambler":
-                                    BoxFunction.UseGambler(ent, player);
-                                    break;
-                                case "airstrike":
-                                    if (Call<int>("getdvarint", "scr_aiz_power") == 1)
-                                    {
-                                        BoxFunction.UseAirstrike(player);
-                                    }
-                                    break;
-                                case "perk":
-                                    if (Call<int>("getdvarint", "scr_aiz_power") == 1)
-                                    {
-                                        BoxFunction.UsePerk(player, ent.GetField<PerkCola>("perk"));
-                                    }
-                                    break;
-                                case "randomperk":
-                                    if (Call<int>("getdvarint", "scr_aiz_power") == 1)
-                                    {
-                                        BoxFunction.UseRandomPerk(ent, player);
-                                    }
-                                    break;
-                                case "gobblegum":
-                                    break;
-                            }
-                        }
-                    }
-                }
-            }
-            catch (Exception)
-            {
-            }
-        }
-
-        private void TrampolineThink(Entity player)
-        {
-            OnInterval(100, () =>
-            {
-                try
-                {
-                    foreach (var ent in usables)
-                    {
-                        if (player.Origin.DistanceTo(ent.Origin) >= ent.GetField<int>("range"))
-                        {
-                            continue;
-                        }
-                        if (ent.GetField<string>("usabletype") == "trampoline" && player.Call<int>("IsOnGround") == 0 && player.IsAlive && !player.CurrentWeapon.Contains("ac130") && !player.CurrentWeapon.Contains("killstreak") && !player.CurrentWeapon.Contains("remote"))
-                        {
-                            BoxFunction.UseTrampoline(ent, player);
-                        }
-                    }
-                }
-                catch (Exception)
-                {
-                }
-                return true;
-            });
         }
 
         public void InitMapEdit()
@@ -481,7 +48,7 @@ namespace INF3
             var files = Directory.GetFiles("scripts\\inf3-maps\\" + Utility.MapName + "\\");
             if (files.Length > 0)
             {
-                _currentfile = files[Utility.Rng.Next(files.Length)];
+                _currentfile = files[Utility.Random.Next(files.Length)];
                 if (File.Exists(_currentfile))
                 {
                     LoadMapEdit();
@@ -489,62 +56,93 @@ namespace INF3
             }
         }
 
-        private void CreateFlagShader(Entity flag)
+        private void UsableThink(Entity player)
         {
-            HudElem elem = HudElem.NewHudElem();
-            elem.SetShader("waypoint_flag_friendly", 15, 15);
-            elem.Alpha = 0.6f;
-            elem.X = flag.Origin.X;
-            elem.Y = flag.Origin.Y;
-            elem.Z = flag.Origin.Z + 100f;
-            elem.Call("SetWayPoint", 1, 1);
+            BoxEntity ent = null;
+            foreach (var item in boxents)
+            {
+                if (player.IsAlive && item.Origin.DistanceTo(player.Origin) <= item.Range)
+                {
+                    if (ent == null)
+                    {
+                        ent = item;
+                    }
+                    else if (item.Origin.DistanceTo(player.Origin) < ent.Origin.DistanceTo(player.Origin))
+                    {
+                        ent = item;
+                    }
+                }
+            }
+            ent.Usable(player);
         }
 
-        private HudElem CreateShader(Entity ent, string shader, string team = "")
+        private void UsableHud(Entity player)
         {
-            HudElem elem;
-            if (team != "")
-            {
-                elem = HudElem.NewTeamHudElem(team);
-            }
-            else
-            {
-                elem = HudElem.NewHudElem();
-            }
-            elem.SetShader(shader, 15, 15);
-            elem.Alpha = 0.6f;
-            elem.X = ent.Origin.X;
-            elem.Y = ent.Origin.Y;
-            elem.Z = ent.Origin.Z + 50f;
-            elem.Call("SetWayPoint", 1, 1);
+            HudElem message = HudElem.CreateFontString(player, "big", 1.5f);
+            message.SetPoint("CENTER", "CENTER", 1, 115);
+            message.Alpha = 0.65f;
 
-            return elem;
+            HudElem perk = HudElem.NewClientHudElem(player);
+
+            player.OnInterval(100, e =>
+            {
+                try
+                {
+                    bool flag = false;
+                    bool flag2 = false;
+                    foreach (var item in boxents)
+                    {
+                        if (player.Origin.DistanceTo(item.Origin) >= item.Range)
+                        {
+                            continue;
+                        }
+                        message.SetText(item.UsableText(player));
+                        if (item.Type == BoxType.PerkColaMachine)
+                        {
+                            var type = ((PerkColaMachine)item).PerkCola;
+                            perk.SetShader(type.Icon, 15, 15);
+                            perk.X = item.Origin.X;
+                            perk.Y = item.Origin.Y;
+                            perk.Z = item.Origin.Z + 50f;
+                            perk.Call("setwaypoint", 1, 1);
+                            perk.Alpha = 0.7f;
+                            flag2 = true;
+                        }
+                        flag = true;
+                    }
+                    if (!flag)
+                    {
+                        message.SetText("");
+                    }
+                    if (!flag2)
+                    {
+                        perk.Alpha = 0f;
+                    }
+                }
+                catch (Exception)
+                {
+                    message.SetText("");
+                    perk.Alpha = 0;
+                }
+
+                return player.IsPlayer;
+            });
         }
 
-        private Entity CreateLaptop(Entity ent)
+        public static Entity CreateLaptop(Vector3 origin)
         {
-            var origin = ent.Origin;
             origin.Z += 17;
             Entity laptop = Utility.Spawn("script_model", origin);
             laptop.Call("setmodel", "com_laptop_2_open");
-            OnInterval(100, () =>
+            bool flag = true;
+            laptop.OnNotify("stop_rotate", e => flag = false);
+            laptop.OnInterval(100, e =>
             {
-                laptop.Call("rotateyaw", new Parameter[] { -360, 7 });
-                return true;
+                laptop.Call("rotateyaw", -360, 7);
+                return flag;
             });
 
             return laptop;
-        }
-
-        private int CreateObjective(Entity ent, string shader, string team = "none")
-        {
-            int num = 31 - curObjID++;
-            Call("objective_state", num, "active");
-            Call("objective_position", num, ent.Origin);
-            Call("objective_icon", num, shader);
-            Call("objective_team", num, team);
-
-            return num;
         }
 
         public void CreateRamp(Vector3 top, Vector3 bottom)
@@ -562,13 +160,13 @@ namespace INF3
         public void CreateElevator(Vector3 enter, Vector3 exit)
         {
             Entity flag = Utility.Spawn("script_model", enter);
-            flag.Call("setmodel", Utility.GetFlagModel(Utility.MapName));
+            flag.Call("setmodel", Utility.GetFlagModel());
             Utility.Spawn("script_model", exit).Call("setmodel", "prop_flag_neutral");
-            CreateFlagShader(flag);
-            CreateObjective(flag, "compass_waypoint_target");
+            Hud.CreateFlagShader(enter);
+            Hud.CreateObjective(enter, "compass_waypoint_target");
             OnInterval(100, () =>
             {
-                foreach (Entity entity in Utility.GetPlayers())
+                foreach (Entity entity in Utility.Players)
                 {
                     if (entity.Origin.DistanceTo(enter) <= 50f)
                     {
@@ -585,7 +183,7 @@ namespace INF3
             Utility.Spawn("script_model", enter).Call("setmodel", "weapon_oma_pack");
             OnInterval(100, delegate
             {
-                foreach (Entity entity in Utility.GetPlayers())
+                foreach (Entity entity in Utility.Players)
                 {
                     if (entity.Origin.DistanceTo(enter) <= 50f)
                     {
@@ -594,64 +192,6 @@ namespace INF3
                 }
                 return true;
             });
-        }
-
-        public void CreateDoor(Vector3 open, Vector3 close, Vector3 angle, int size, int height, int hp, int range)
-        {
-            double num = ((size / 2) - 0.5) * -1.0;
-            Entity ent = Utility.Spawn("script_model", open);
-            for (int i = 0; i < size; i++)
-            {
-                Entity entity2 = SpawnCrate(open + new Vector3(0f, 30f, 0f) * ((float)num), new Vector3(0f, 0f, 0f));
-                entity2.Call("setmodel", "com_plasticcase_enemy");
-                entity2.Call("enablelinkto");
-                entity2.Call("linkto", ent);
-                for (int j = 1; j < height; j++)
-                {
-                    Entity entity3 = SpawnCrate((open + new Vector3(0f, 30f, 0f) * ((float)num)) - (new Vector3(70f, 0f, 0f) * j), new Vector3(0f, 0f, 0f));
-                    entity3.Call("setmodel", "com_plasticcase_enemy");
-                    entity3.Call("enablelinkto");
-                    entity3.Call("linkto", ent);
-                }
-                num++;
-            }
-            ent.SetField("angles", angle);
-            ent.SetField("state", "open");
-            ent.SetField("hp", hp);
-            ent.SetField("maxhp", hp);
-            ent.SetField("open", open);
-            ent.SetField("close", close);
-
-            doors.Add(ent);
-            MakeUsable(ent, "door", range);
-        }
-
-        public void CreatePayDoor(Vector3 open, Vector3 close, Vector3 angle, int size, int height, int pay, int range)
-        {
-            double num = ((size / 2) - 0.5) * -1.0;
-            Entity ent = Utility.Spawn("script_model", close);
-            for (int i = 0; i < size; i++)
-            {
-                Entity entity2 = SpawnCrate(close + new Vector3(0f, 30f, 0f) * ((float)num), new Vector3(0f, 0f, 0f));
-                entity2.Call("setmodel", "com_plasticcase_enemy");
-                entity2.Call("enablelinkto");
-                entity2.Call("linkto", ent);
-                for (int j = 1; j < height; j++)
-                {
-                    Entity entity3 = SpawnCrate((close + new Vector3(0f, 30f, 0f) * ((float)num)) - (new Vector3(70f, 0f, 0f) * j), new Vector3(0f, 0f, 0f));
-                    entity3.Call("setmodel", "com_plasticcase_enemy");
-                    entity3.Call("enablelinkto");
-                    entity3.Call("linkto", ent);
-                }
-                num++;
-            }
-            ent.SetField("angles", angle);
-            ent.SetField("state", "close");
-            ent.SetField("pay", pay);
-            ent.SetField("open", open);
-            ent.SetField("close", close);
-
-            MakeUsable(ent, "paydoor", range);
         }
 
         public Entity CreateWall(Vector3 start, Vector3 end)
@@ -745,160 +285,7 @@ namespace INF3
             return entity;
         }
 
-        public void CreateZipline(Vector3 enter, Vector3 angles, Vector3 exit, int movetime)
-        {
-            Entity ent = SpawnCrate(enter, angles);
-            ent.SetField("state", "idle");
-            ent.SetField("exit", exit);
-            ent.SetField("movetime", movetime);
-            CreateObjective(ent, "hudicon_neutral");
-
-            MakeUsable(ent, "zipline", 50);
-        }
-
-        public void CreateTeleporter(Vector3 enter, Vector3 angles, Vector3 exit)
-        {
-            Entity ent = SpawnCrate(enter, angles);
-            ent.SetField("exit", exit);
-            CreateObjective(ent, "hudicon_neutral");
-            CreateShader(ent, "hudicon_neutral");
-            CreateLaptop(ent);
-
-            MakeUsable(ent, "teleporter", 50);
-        }
-
-        public void CreateTrampoline(Vector3 enter, Vector3 angles, int high)
-        {
-            Entity ent = SpawnCrate(enter, angles);
-            ent.SetField("high", high);
-            CreateObjective(ent, "cardicon_tictacboom");
-            CreateShader(ent, "cardicon_tictacboom");
-
-            MakeUsable(ent, "trampoline", 50);
-        }
-
-        public void CreatePower(Vector3 origin, Vector3 angles)
-        {
-            if (_haspowerbox)
-            {
-                return;
-            }
-            _haspowerbox = true;
-
-            Entity ent = SpawnCrate(origin, angles);
-            ent.SetField("player", "");
-            var obj = CreateObjective(ent, "cardicon_bulb", "allies");
-            var shader = CreateShader(ent, "cardicon_bulb", "allies");
-            Call("setdvar", "scr_aiz_power", 0);
-            OnInterval(100, () =>
-            {
-                if (Call<int>("getdvarint", "scr_aiz_power") == 2)
-                {
-                    shader.Call("destroy");
-                    Call("objective_delete", obj);
-
-                    Vector3 origin2 = ent.Origin;
-                    origin2.Z += 1000f;
-
-                    ent.Call("clonebrushmodeltoscriptmodel", _nullCollision);
-                    ent.Call("moveto", origin2, 2.3f);
-                    AfterDelay(2300, () =>
-                    {
-                        Call("playfx", Call<int>("loadfx", "explosions/emp_flash_mp"), origin2);
-                        ent.Call("playsoundasmaster", "exp_suitcase_bomb_main");
-                        usables.Remove(ent);
-                        ent.Call("delete");
-
-                        var messages = new List<string>
-                        {
-                            ent.GetField<string>("player"),
-                            "Activated Power!",
-                        };
-                        foreach (var player in Utility.GetPlayers())
-                        {
-                            if (player.GetTeam() == "allies")
-                            {
-                                player.WelcomeMessage(messages, new Vector3(1, 1, 1), new Vector3(1, 0.5f, 0.3f), 1, 0.85f);
-                            }
-                        }
-                        Call("setdvar", "scr_aiz_power", 1);
-                    });
-                    return false;
-                }
-                return true;
-            });
-
-            MakeUsable(ent, "power", 50);
-        }
-
-        public void CreateAmmo(Vector3 origin, Vector3 angles)
-        {
-            Entity ent = SpawnCrate(origin, angles);
-            CreateObjective(ent, "waypoint_ammo_friendly", "allies");
-            CreateShader(ent, "waypoint_ammo_friendly", "allies");
-            CreateLaptop(ent);
-
-            MakeUsable(ent, "ammo", 50);
-        }
-
-        public void CreateGambler(Vector3 origin, Vector3 angles)
-        {
-            Entity ent = SpawnCrate(origin, angles);
-            CreateObjective(ent, "cardicon_8ball", "allies");
-            CreateShader(ent, "cardicon_8ball", "allies");
-            var lap = CreateLaptop(ent);
-            ent.SetField("state", "idle");
-            ent.SetField("laptop", lap);
-
-            MakeUsable(ent, "gambler", 50);
-        }
-
-        public void CreateAirstrike(Vector3 origin, Vector3 angles)
-        {
-            Entity ent = SpawnCrate(origin, angles);
-            CreateObjective(ent, "cardicon_award_jets", "allies");
-            CreateShader(ent, "cardicon_award_jets", "allies");
-            CreateLaptop(ent);
-
-            MakeUsable(ent, "airstrike", 50);
-        }
-
-        public void CreatePerk(Vector3 origin, Vector3 angles, PerkCola perk)
-        {
-            if (_perkboxs.Contains(perk.Type))
-            {
-                return;
-            }
-            _perkboxs.Add(perk.Type);
-
-            Entity ent = SpawnCrate(origin, angles);
-            ent.SetField("perk", new Parameter(perk));
-            CreateObjective(ent, perk.PerkIcon, "allies");
-
-            MakeUsable(ent, "perk", 50);
-        }
-
-        public void CreateRandomPerk(Vector3 origin, Vector3 angles)
-        {
-            Entity ent = SpawnCrate(origin, angles);
-            CreateObjective(ent, "cardicon_tf141", "allies");
-            CreateShader(ent, "cardicon_tf141", "allies");
-            CreateLaptop(ent);
-
-            MakeUsable(ent, "randomperk", 50);
-        }
-
-        public void CreateGobbleGumMachine(Vector3 origin, Vector3 angles)
-        {
-            Entity ent = SpawnCrate(origin, angles);
-            CreateObjective(ent, "dpad_killstreak_ac130", "allies");
-            CreateShader(ent, "dpad_killstreak_ac130", "allies");
-            CreateLaptop(ent);
-
-            MakeUsable(ent, "gobblegum", 50);
-        }
-
-        public Entity SpawnCrate(Vector3 origin, Vector3 angles)
+        public static Entity SpawnCrate(Vector3 origin, Vector3 angles)
         {
             Entity entity = Utility.Spawn("script_model", origin);
             entity.Call("setmodel", "com_plasticcase_friendly");
@@ -907,7 +294,7 @@ namespace INF3
             return entity;
         }
 
-        public Entity SpawnInvCrate(Vector3 origin, Vector3 angles)
+        public static Entity SpawnInvCrate(Vector3 origin, Vector3 angles)
         {
             Entity entity = Utility.Spawn("script_model", origin);
             entity.SetField("angles", angles);
@@ -915,12 +302,61 @@ namespace INF3
             return entity;
         }
 
-        public Entity SpawnModel(string model, Vector3 origin, Vector3 angles)
+        public static Entity SpawnModel(string model, Vector3 origin, Vector3 angles)
         {
             Entity entity = Utility.Spawn("script_model", origin);
             entity.Call("setmodel", model);
             entity.SetField("angles", angles);
             return entity;
+        }
+
+        private void SpawnBox(BoxType type, params Parameter[] args)
+        {
+            BoxEntity ent;
+
+            switch (type)
+            {
+                case BoxType.Door:
+                    ent = new Door(args[0].As<Vector3>(), args[1].As<Vector3>(), args[2].As<Vector3>(), args[3].As<int>(), args[4].As<int>(), args[5].As<int>(), args[6].As<int>());
+                    break;
+                case BoxType.PayDoor:
+                    ent = new PayDoor(args[0].As<Vector3>(), args[1].As<Vector3>(), args[2].As<Vector3>(), args[3].As<int>(), args[4].As<int>(), args[5].As<int>(), args[6].As<int>());
+                    break;
+                case BoxType.Zipline:
+                    ent = new Zipline(args[0].As<Vector3>(), args[2].As<Vector3>(), args[1].As<Vector3>(), args[3].As<int>());
+                    break;
+                case BoxType.Teleporter:
+                    ent = new Teleporter(args[0].As<Vector3>(), args[2].As<Vector3>(), args[1].As<Vector3>());
+                    break;
+                case BoxType.Trampline:
+                    ent = new Trampoline(args[0].As<Vector3>(), args[1].As<Vector3>(), args[2].As<int>());
+                    break;
+                case BoxType.Power:
+                    ent = new Power(args[0].As<Vector3>(), args[1].As<Vector3>());
+                    break;
+                case BoxType.Ammo:
+                    ent = new Ammo(args[0].As<Vector3>(), args[1].As<Vector3>());
+                    break;
+                case BoxType.Gambler:
+                    ent = new Gambler(args[0].As<Vector3>(), args[1].As<Vector3>());
+                    break;
+                case BoxType.RandomAirstrike:
+                    ent = new RandomAirstrike(args[0].As<Vector3>(), args[1].As<Vector3>());
+                    break;
+                case BoxType.GobbleGumMachine:
+                    ent = new GobbleGumMachine(args[0].As<Vector3>(), args[1].As<Vector3>());
+                    break;
+                case BoxType.PerkColaMachine:
+                    ent = new PerkColaMachine(args[0].As<Vector3>(), args[1].As<Vector3>(), (PerkColaType)args[2].As<int>());
+                    break;
+                case BoxType.RandomPerkCola:
+                    ent = new RandomPerkCola(args[0].As<Vector3>(), args[1].As<Vector3>());
+                    break;
+                default:
+                    throw new Exception("Unknown BoxEntity");
+            }
+
+            boxents.Add(ent);
         }
 
         private void LoadMapEdit()
@@ -971,14 +407,14 @@ namespace INF3
                                     strArray = strArray[1].Split(new char[] { ';' });
                                     if (strArray.Length >= 7)
                                     {
-                                        CreateDoor(ParseVector3(strArray[0]), ParseVector3(strArray[1]), ParseVector3(strArray[2]), int.Parse(strArray[3]), int.Parse(strArray[4]), int.Parse(strArray[5]), int.Parse(strArray[6]));
+                                        SpawnBox(BoxType.Door, ParseVector3(strArray[0]), ParseVector3(strArray[1]), ParseVector3(strArray[2]), int.Parse(strArray[3]), int.Parse(strArray[4]), int.Parse(strArray[5]), int.Parse(strArray[6]));
                                     }
                                     continue;
                                 case "paydoor":
                                     strArray = strArray[1].Split(new char[] { ';' });
                                     if (strArray.Length >= 7)
                                     {
-                                        CreatePayDoor(ParseVector3(strArray[0]), ParseVector3(strArray[1]), ParseVector3(strArray[2]), int.Parse(strArray[3]), int.Parse(strArray[4]), int.Parse(strArray[5]), int.Parse(strArray[6]));
+                                        SpawnBox(BoxType.PayDoor, ParseVector3(strArray[0]), ParseVector3(strArray[1]), ParseVector3(strArray[2]), int.Parse(strArray[3]), int.Parse(strArray[4]), int.Parse(strArray[5]), int.Parse(strArray[6]));
                                     }
                                     continue;
                                 case "wall":
@@ -1021,70 +457,70 @@ namespace INF3
                                     strArray = strArray[1].Split(new char[] { ';' });
                                     if (strArray.Length >= 4)
                                     {
-                                        CreateZipline(ParseVector3(strArray[0]) + new Vector3(0, 0, 5), new Vector3(0, ParseVector3(strArray[1]).Y, 0), ParseVector3(strArray[2]), Convert.ToInt32(strArray[3]));
+                                        SpawnBox(BoxType.Zipline, ParseVector3(strArray[0]) + new Vector3(0, 0, 10), new Vector3(0, ParseVector3(strArray[1]).Y, 0), ParseVector3(strArray[2]), Convert.ToInt32(strArray[3]));
                                     }
                                     continue;
                                 case "teleporter":
                                     strArray = strArray[1].Split(new char[] { ';' });
                                     if (strArray.Length >= 3)
                                     {
-                                        CreateTeleporter(ParseVector3(strArray[0]) + new Vector3(0, 0, 5), new Vector3(0, ParseVector3(strArray[1]).Y, 0), ParseVector3(strArray[2]));
+                                        SpawnBox(BoxType.Teleporter, ParseVector3(strArray[0]) + new Vector3(0, 0, 10), new Vector3(0, ParseVector3(strArray[1]).Y, 0), ParseVector3(strArray[2]));
                                     }
                                     continue;
                                 case "trampoline":
                                     strArray = strArray[1].Split(new char[] { ';' });
                                     if (strArray.Length >= 3)
                                     {
-                                        CreateTrampoline(ParseVector3(strArray[0]) + new Vector3(0, 0, 5), new Vector3(0, ParseVector3(strArray[1]).Y, 0), Convert.ToInt32(strArray[2]));
+                                        SpawnBox(BoxType.Trampline, ParseVector3(strArray[0]) + new Vector3(0, 0, 10), new Vector3(0, ParseVector3(strArray[1]).Y, 0), Convert.ToInt32(strArray[2]));
                                     }
                                     continue;
                                 case "power":
                                     strArray = strArray[1].Split(new char[] { ';' });
                                     if (strArray.Length >= 2)
                                     {
-                                        CreatePower(ParseVector3(strArray[0]) + new Vector3(0, 0, 5), new Vector3(0, ParseVector3(strArray[1]).Y, 0));
+                                        SpawnBox(BoxType.Power, ParseVector3(strArray[0]) + new Vector3(0, 0, 10), new Vector3(0, ParseVector3(strArray[1]).Y, 0));
                                     }
                                     continue;
                                 case "ammo":
                                     strArray = strArray[1].Split(new char[] { ';' });
                                     if (strArray.Length >= 2)
                                     {
-                                        CreateAmmo(ParseVector3(strArray[0]) + new Vector3(0, 0, 5), new Vector3(0, ParseVector3(strArray[1]).Y, 0));
+                                        SpawnBox(BoxType.Ammo, ParseVector3(strArray[0]) + new Vector3(0, 0, 10), new Vector3(0, ParseVector3(strArray[1]).Y, 0));
                                     }
                                     continue;
                                 case "gambler":
                                     strArray = strArray[1].Split(new char[] { ';' });
                                     if (strArray.Length >= 2)
                                     {
-                                        CreateGambler(ParseVector3(strArray[0]) + new Vector3(0, 0, 5), new Vector3(0, ParseVector3(strArray[1]).Y, 0));
+                                        SpawnBox(BoxType.Gambler, ParseVector3(strArray[0]) + new Vector3(0, 0, 10), new Vector3(0, ParseVector3(strArray[1]).Y, 0));
                                     }
                                     continue;
                                 case "airstrike":
                                     strArray = strArray[1].Split(new char[] { ';' });
                                     if (strArray.Length >= 2)
                                     {
-                                        CreateAirstrike(ParseVector3(strArray[0]) + new Vector3(0, 0, 5), new Vector3(0, ParseVector3(strArray[1]).Y, 0));
+                                        SpawnBox(BoxType.RandomAirstrike, ParseVector3(strArray[0]) + new Vector3(0, 0, 10), new Vector3(0, ParseVector3(strArray[1]).Y, 0));
                                     }
                                     continue;
                                 case "perk":
                                     strArray = strArray[1].Split(new char[] { ';' });
                                     if (strArray.Length >= 3)
                                     {
-                                        CreatePerk(ParseVector3(strArray[0]) + new Vector3(0, 0, 5), new Vector3(0, ParseVector3(strArray[1]).Y, 0), new PerkCola(Convert.ToInt32(strArray[2])));
+                                        SpawnBox(BoxType.PerkColaMachine, ParseVector3(strArray[0]) + new Vector3(0, 0, 10), new Vector3(0, ParseVector3(strArray[1]).Y, 0), new Parameter((PerkColaType)Convert.ToInt32(strArray[2])));
                                     }
                                     continue;
                                 case "randomperk":
                                     strArray = strArray[1].Split(new char[] { ';' });
                                     if (strArray.Length >= 2)
                                     {
-                                        CreateRandomPerk(ParseVector3(strArray[0]) + new Vector3(0, 0, 5), new Vector3(0, ParseVector3(strArray[1]).Y, 0));
+                                        SpawnBox(BoxType.RandomPerkCola, ParseVector3(strArray[0]) + new Vector3(0, 0, 10), new Vector3(0, ParseVector3(strArray[1]).Y, 0));
                                     }
                                     continue;
                                 case "gobblegum":
                                     strArray = strArray[1].Split(new char[] { ';' });
                                     if (strArray.Length >= 2)
                                     {
-                                        CreateGobbleGumMachine(ParseVector3(strArray[0]) + new Vector3(0, 0, 5), new Vector3(0, ParseVector3(strArray[1]).Y, 0));
+                                        SpawnBox(BoxType.GobbleGumMachine, ParseVector3(strArray[0]) + new Vector3(0, 0, 10), new Vector3(0, ParseVector3(strArray[1]).Y, 0));
                                     }
                                     continue;
                             }

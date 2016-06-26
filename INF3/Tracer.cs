@@ -15,13 +15,9 @@ namespace INF3
         public static Trace LocationalTrace(Vector3 start, Vector3 end, int ignoreEntNum = 2047, int clipMask = 0x806831)
         {
             Trace trace = new Trace();
-            GetLocationalTraceFunction()(
-                ref trace,
-                ref start,
-                ref end,
-                ignoreEntNum,
-                clipMask, 
-                0);
+            GetLocationalTraceFunction()(ref trace, ref start, ref end, ignoreEntNum, clipMask, 0);
+            AIZDebug.DebugLog(typeof(Tracer), "Bullet Trace: " + trace.ToString() + ", " + start + ", " + end);
+
             return trace;
         }
 
@@ -52,6 +48,8 @@ namespace INF3
             var headPosition = e.Call<Vector3>("gettagorigin", "tag_eye"); // props to kenny
             var forwardAngles = Call<Vector3>("anglestoforward", e.Call<Vector3>("getplayerangles"));
             var traceEndPosition = headPosition + forwardAngles * maxDistance; // far to the forward towards crosshair
+            AIZDebug.DebugLog(typeof(Tracer), "PhysicsTraceFromEye: " + e.Name);
+
             return PhysicsTrace(headPosition, traceEndPosition);
         }
 
@@ -64,9 +62,7 @@ namespace INF3
         {
             if (_locationalTraceFunction == null)
             {
-                _locationalTraceFunction = (G_LocationalTrace)Marshal.GetDelegateForFunctionPointer(
-                    LocationalTracePointer,
-                    typeof(G_LocationalTrace));
+                _locationalTraceFunction = (G_LocationalTrace)Marshal.GetDelegateForFunctionPointer(LocationalTracePointer, typeof(G_LocationalTrace));
             }
             return _locationalTraceFunction;
         }

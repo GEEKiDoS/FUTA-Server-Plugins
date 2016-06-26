@@ -2,33 +2,182 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Timers;
 using InfinityScript;
 
 namespace INF3
 {
+    public enum PowerUpType
+    {
+        /// <summary>
+        /// 子弹全满
+        /// </summary>
+        MaxAmmo,
+        /// <summary>
+        /// 双倍点数
+        /// </summary>
+        DoublePoints,
+        /// <summary>
+        /// 一击必杀
+        /// </summary>
+        InstaKill,
+        /// <summary>
+        /// 核爆
+        /// </summary>
+        Nuke,
+        /// <summary>
+        /// 廉价火力
+        /// </summary>
+        FireSale,
+        /// <summary>
+        /// 点数奖励
+        /// </summary>
+        BonusPoints,
+        /// <summary>
+        /// 屏障恢复
+        /// </summary>
+        Carpenter
+    }
+
+    public class PowerUpEntity : IDisposable
+    {
+        public delegate void TriggerUse(Entity player);
+
+        private Timer timer;
+        private Timer warntimer = new Timer(500);
+        private Timer rotatetimer = new Timer(5000);
+        private Timer thinktimer = new Timer(100);
+
+        public PowerUpType Type { get; }
+        public Entity Entity { get; }
+        public Entity FX { get; }
+        public Vector3 Origin
+        {
+            get
+            {
+                return Entity.Origin;
+            }
+        }
+        public int Timeout { get; set; }
+        public TriggerUse OnTriggerUse { get; set; }
+
+        public PowerUpEntity(PowerUpType type, string model, Vector3 origin, Vector3 angle, int fx, TriggerUse triggeruse)
+        {
+            Type = type;
+            origin = origin += new Vector3(0, 0, 10);
+
+            if (Type == PowerUpType.Nuke)
+            {
+                origin += new Vector3(0, 0, 40);
+            }
+
+            Entity = Utility.Spawn("script_model", origin);
+            Entity.Call("setmodel", model);
+            Entity.SetField("angles", angle);
+            FX = Effects.SpawnFx(fx, origin);
+            Timeout = GetTimeout();
+            OnTriggerUse += triggeruse;
+
+            PowerUpTimer();
+            PowerUpRotate();
+            PowerUpThink();
+
+            AIZDebug.DebugLog(GetType(), "Create PowerUp: " + type);
+        }
+
+        private int GetTimeout()
+        {
+            if (Utility.GetDvar<int>("global_gobble_temporalgift") == 1)
+            {
+                return 45;
+            }
+            else
+            {
+                return 30;
+            }
+        }
+
+        private void PowerUpThink()
+        {
+            thinktimer.AutoReset = true;
+            thinktimer.Elapsed += (sender, e) =>
+            {
+                foreach (var item in Utility.Players)
+                {
+                    if (item.IsAlive && item.GetTeam() == "allies" && item.Origin.DistanceTo(Origin) < 50)
+                    {
+                        OnTriggerUse(item);
+                        Dispose();
+                    }
+                }
+            };
+            thinktimer.Start();
+        }
+
+        private void PowerUpTimer()
+        {
+            timer = new Timer(Timeout - 1);
+            timer.AutoReset = false;
+            timer.Elapsed += (sender, e) => PowerUpTimeoutWarning();
+            timer.Start();
+        }
+
+        private void PowerUpTimeoutWarning()
+        {
+            const int MAX = 20;
+
+            bool ishide = false;
+            int num = 0;
+            warntimer.AutoReset = true;
+            warntimer.Elapsed += (sender, e) =>
+            {
+                if (ishide)
+                {
+                    Entity.Call("hide");
+                    ishide = true;
+                }
+                else
+                {
+                    Entity.Call("show");
+                    ishide = false;
+                }
+                num++;
+
+                if (num == MAX)
+                {
+                    timer.Stop();
+                    Dispose();
+                }
+            };
+            warntimer.Start();
+        }
+
+        private void PowerUpRotate()
+        {
+            rotatetimer.AutoReset = true;
+            rotatetimer.Elapsed += (sender, e) =>
+            {
+                Entity.Call("rotateyaw", -360, 5);
+            };
+            timer.Start();
+        }
+
+        public void Dispose()
+        {
+            timer.Dispose();
+            warntimer.Dispose();
+            rotatetimer.Dispose();
+            thinktimer.Dispose();
+
+            FX.Call("delete");
+            Entity.Call("delete");
+
+            AIZDebug.DebugLog(GetType(), "PowerUp Disposed.");
+        }
+    }
+
     public class PowerUp : BaseScript
     {
-        public enum PowerUpType
-        {
-            MaxAmmo,
-            DoublePoints,
-            InstaKill,
-            Nuke,
-            FireSale,
-            BonusPoints,
-            Carpenter
-        }
-
-        private static readonly List<Entity> _bonusdrops = new List<Entity>();
-
-        public PowerUp()
-        {
-            PlayerConnected += player =>
-            {
-                UsablePowerUp(player);
-            };
-        }
-
         public override void OnPlayerKilled(Entity player, Entity inflictor, Entity attacker, int damage, string mod, string weapon, Vector3 dir, string hitLoc)
         {
             if (mod == "MOD_SUICIDE")
@@ -36,170 +185,56 @@ namespace INF3
 
             if (player.GetTeam() == "axis")
             {
-                var random = Utility.Rng.Next(5);
-                var randomequels = Utility.Rng.Next(5);
+                var random = Utility.Random.Next(5);
+                var randomequels = Utility.Random.Next(5);
                 if (random == randomequels)
                 {
-                    switch ((PowerUpType)Utility.Rng.Next(Enum.GetNames(typeof(PowerUpType)).Length))
-                    {
-                        case PowerUpType.MaxAmmo:
-                            PowerUpReg(PowerUpType.MaxAmmo, "com_plasticcase_friendly", player.Origin, player.GetField<Vector3>("angles"), Call<int>("loadfx", "misc/flare_ambient_green"));
-                            break;
-                        case PowerUpType.DoublePoints:
-                            PowerUpReg(PowerUpType.DoublePoints, "com_plasticcase_friendly", player.Origin, player.GetField<Vector3>("angles"), Call<int>("loadfx", "misc/flare_ambient"));
-                            break;
-                        case PowerUpType.InstaKill:
-                            PowerUpReg(PowerUpType.InstaKill, "com_plasticcase_trap_friendly", player.Origin, player.GetField<Vector3>("angles"), Call<int>("loadfx", "misc/flare_ambient"));
-                            break;
-                        case PowerUpType.Nuke:
-                            PowerUpReg(PowerUpType.Nuke, "projectile_cbu97_clusterbomb", player.Origin, player.GetField<Vector3>("angles") - new Vector3(90, 0, 0), Call<int>("loadfx", "misc/flare_ambient"));
-                            break;
-                        case PowerUpType.FireSale:
-                            PowerUpReg(PowerUpType.FireSale, "com_plasticcase_enemy", player.Origin, player.GetField<Vector3>("angles"), Call<int>("loadfx", "misc/flare_ambient"));
-                            break;
-                        case PowerUpType.BonusPoints:
-                            PowerUpReg(PowerUpType.BonusPoints, "com_plasticcase_enemy", player.Origin, player.GetField<Vector3>("angles"), Call<int>("loadfx", "misc/flare_ambient_green"));
-                            break;
-                        case PowerUpType.Carpenter:
-                            PowerUpReg(PowerUpType.Carpenter, "com_plasticcase_trap_friendly", player.Origin, player.GetField<Vector3>("angles"), Call<int>("loadfx", "fire/flare_ambient_green"));
-                            break;
-                    }
+                    PowerUpDrop(player);
                 }
             }
         }
 
-        private void UsablePowerUp(Entity player)
+        public static void PowerUpDrop(Entity player)
         {
-            OnInterval(100, () =>
-            {
-                try
-                {
-                    if (player.GetTeam() == "allies" && player.IsAlive)
-                    {
-                        foreach (var ent in _bonusdrops)
-                        {
-                            if (player.Origin.DistanceTo(ent.Origin) <= 75)
-                            {
-                                PowerUpThink(ent.GetField<PowerUpType>("powerup"), player);
-                                PowerUpDestroy(ent);
-                            }
-                        }
-                    }
-                }
-                catch (Exception)
-                {
-                }
-
-                return true;
-            });
-        }
-        private void PowerUpReg(PowerUpType type, string model, Vector3 origin, Vector3 angles, int fx)
-        {
-            if (type == PowerUpType.Nuke)
-                origin += new Vector3(0, 0, 40);
-
-            var block = Utility.Spawn("script_model", origin);
-            block.Call("setmodel", model);
-            block.SetField("angles", angles);
-            var fxent = Call<Entity>("spawnfx", fx, origin);
-            Call("triggerfx", fxent);
-
-            block.SetField("powerup", new Parameter(type));
-            block.SetField("fx", fxent);
-
-            PowerUpRotate(block);
-            PowerUpTimer(block);
-
-            _bonusdrops.Add(block);
-        }
-
-        private void PowerUpThink(PowerUpType powertype, Entity player)
-        {
-            switch (powertype)
+            switch ((PowerUpType)Utility.Random.Next(Enum.GetNames(typeof(PowerUpType)).Length))
             {
                 case PowerUpType.MaxAmmo:
-                    MaxAmmo(player);
+                    new PowerUpEntity(PowerUpType.MaxAmmo, "com_plasticcase_friendly", player.Origin, player.GetField<Vector3>("angles"), Effects.greenbeaconfx, ent => MaxAmmo(ent));
                     break;
                 case PowerUpType.DoublePoints:
-                    DoublePoints(player);
+                    new PowerUpEntity(PowerUpType.DoublePoints, "com_plasticcase_friendly", player.Origin, player.GetField<Vector3>("angles"), Effects.redbeaconfx, ent => DoublePoints(ent));
                     break;
                 case PowerUpType.InstaKill:
-                    InstaKill(player);
+                    new PowerUpEntity(PowerUpType.InstaKill, "com_plasticcase_trap_friendly", player.Origin, player.GetField<Vector3>("angles"), Effects.smallfirefx, ent => InstaKill(ent));
                     break;
                 case PowerUpType.Nuke:
-                    Nuke(player);
+                    new PowerUpEntity(PowerUpType.Nuke, "projectile_cbu97_clusterbomb", player.Origin, player.GetField<Vector3>("angles") - new Vector3(90, 0, 0), Effects.smallfirefx, ent => Nuke(ent));
                     break;
                 case PowerUpType.FireSale:
-                    FireSale(player);
+                    new PowerUpEntity(PowerUpType.FireSale, "com_plasticcase_enemy", player.Origin, player.GetField<Vector3>("angles"), Effects.greenbeaconfx, ent => FireSale(ent));
                     break;
                 case PowerUpType.BonusPoints:
-                    BonusPoints(player);
+                    new PowerUpEntity(PowerUpType.BonusPoints, "com_plasticcase_enemy", player.Origin, player.GetField<Vector3>("angles"), Effects.redbeaconfx, ent => BonusPoints(ent));
                     break;
                 case PowerUpType.Carpenter:
-                    Carpenter(player);
+                    new PowerUpEntity(PowerUpType.Carpenter, "com_plasticcase_trap_friendly", player.Origin, player.GetField<Vector3>("angles"), Effects.greenbeaconfx, ent => Carpenter(ent));
                     break;
             }
-        }
-
-        private static void PowerUpTimer(Entity bonusdrop)
-        {
-            bonusdrop.AfterDelay(20000, e =>
-            {
-                if (bonusdrop != null)
-                {
-                    int i = 0;
-                    bool ishide = false;
-                    bonusdrop.OnInterval(500, ex =>
-                    {
-                        if (bonusdrop == null)
-                            return false;
-
-                        if (ishide)
-                        {
-                            bonusdrop.Call("hide");
-                            ishide = true;
-                        }
-                        else
-                        {
-                            bonusdrop.Call("show");
-                            ishide = false;
-                        }
-                        i++;
-                        return i < 10;
-                    });
-                }
-            });
-            bonusdrop.AfterDelay(30000, e =>
-            {
-                if (bonusdrop != null)
-                    PowerUpDestroy(bonusdrop);
-            });
-        }
-
-        private static void PowerUpRotate(Entity bonusdrop)
-        {
-            bonusdrop.OnInterval(5000, e =>
-            {
-                bonusdrop.Call("rotateyaw", -360, 5);
-
-                return bonusdrop != null;
-            });
-        }
-
-        private static void PowerUpDestroy(Entity bonusdrop)
-        {
-            _bonusdrops.Remove(bonusdrop);
-            bonusdrop.GetField<Entity>("fx").Call("delete");
-            bonusdrop.Call("delete");
         }
 
         private static void PowerUpHudTimer(HudElem hud)
         {
-            hud.Entity.AfterDelay(20000, e =>
+            var timer1 = new Timer(20000);
+            var timer2 = new Timer(500);
+            var timer3 = new Timer(250);
+
+            timer1.AutoReset = false;
+            timer1.Elapsed += (sender, e) =>
             {
                 float i = 0;
                 bool ishide = false;
-                hud.Entity.OnInterval(500, ex =>
+                timer2.AutoReset = true;
+                timer2.Elapsed += (sender2, e2) =>
                 {
                     if (ishide)
                     {
@@ -214,54 +249,61 @@ namespace INF3
                         ishide = false;
                     }
                     i++;
-                    return i < 5;
-                });
-                hud.Entity.AfterDelay(5000, ex =>
-                {
-                    hud.Entity.OnInterval(250, ee =>
+                    if (i >= 5)
                     {
-                        if (ishide)
+                        timer3.AutoReset = true;
+                        timer3.Elapsed += (sender3, e3) =>
                         {
-                            hud.Call("fadeovertime", 0.25f);
-                            hud.Alpha = 0;
-                            ishide = true;
-                        }
-                        else
-                        {
-                            hud.Call("fadeovertime", 0.25f);
-                            hud.Alpha = 1;
-                            ishide = false;
-                        }
-                        i += 0.5f;
-                        return i < 10;
-                    });
-                });
-            });
-            hud.Entity.AfterDelay(30000, e =>
-            {
-                hud.Call("destroy");
-            });
+                            if (ishide)
+                            {
+                                hud.Call("fadeovertime", 0.25f);
+                                hud.Alpha = 0;
+                                ishide = true;
+                            }
+                            else
+                            {
+                                hud.Call("fadeovertime", 0.25f);
+                                hud.Alpha = 1;
+                                ishide = false;
+                            }
+                            i += 0.5f;
+                            if (i >= 10)
+                            {
+                                hud.Call("destroy");
+
+                                timer1.Dispose();
+                                timer2.Dispose();
+                                timer3.Dispose();
+                            }
+                        };
+                        timer3.Start();
+                        timer2.Stop();
+                    }
+                };
+                timer2.Start();
+            };
+            timer1.Start();
         }
 
         public static void MaxAmmo(Entity player)
         {
             Hud.BonusDropTakeHud(player, "Max Ammo", "waypoint_ammo_friendly");
-            foreach (var item in Utility.GetPlayers())
+            foreach (var item in Utility.Players)
             {
                 if (item.GetTeam() == "allies")
                 {
-                    item.GiveAmmo();
+                    MaxAmmo(player);
                 }
             }
         }
 
         public static void DoublePoints(Entity player)
         {
-            if (Function.Call<int>("getdvarint", "bonus_double_points") == 1)
+            if (Utility.GetDvar<int>("bonus_double_points") == 1)
                 return;
 
             PowerUpHudTimer(Hud.BonusDropHud("cardicon_spetsnaz", 0));
-            Function.Call("setdvar", "bonus_double_points", 1);
+            Utility.SetDvar("bonus_double_points", 1);
             player.AfterDelay(30000, e =>
             {
                 Function.Call("setdvar", "bonus_double_points", 0);
@@ -270,11 +312,11 @@ namespace INF3
 
         public static void InstaKill(Entity player)
         {
-            if (Function.Call<int>("getdvarint", "bonus_insta_kill") == 1)
+            if (Utility.GetDvar<int>("bonus_insta_kill") == 1)
                 return;
 
             PowerUpHudTimer(Hud.BonusDropHud("cardicon_skull_black", -35));
-            Function.Call("setdvar", "bonus_insta_kill", 1);
+            Utility.SetDvar("bonus_insta_kill", 1);
             player.AfterDelay(30000, e =>
             {
                 Function.Call("setdvar", "bonus_insta_kill", 0);
@@ -286,22 +328,22 @@ namespace INF3
             player.WinCash(400);
             Hud.BonusDropTakeHud(player, "Nuke", "dpad_killstreak_nuke");
 
-            foreach (var item in Utility.GetPlayers())
+            foreach (var item in Utility.Players)
             {
                 if (item.GetTeam() == "axis" && item.IsAlive)
                 {
-                    item.AfterDelay(600, e => item.SelfExploed());
+                    item.AfterDelay(600, e => item.Notify("self_exploed"));
                 }
             }
         }
 
         public static void FireSale(Entity player)
         {
-            if (Function.Call<int>("getdvarint", "bonus_fire_sale") == 1)
+            if (Utility.GetDvar<int>("bonus_fire_sale") == 1)
                 return;
 
             PowerUpHudTimer(Hud.BonusDropHud("cardicon_joystick", 70));
-            Function.Call("setdvar", "bonus_fire_sale", 1);
+            Utility.SetDvar("bonus_fire_sale", 1);
             player.AfterDelay(30000, e =>
             {
                 Function.Call("setdvar", "bonus_fire_sale", 0);
@@ -312,7 +354,7 @@ namespace INF3
         {
             Hud.BonusDropTakeHud(player, "Bonus Points", "cardicon_8ball");
 
-            foreach (var item in Utility.GetPlayers())
+            foreach (var item in Utility.Players)
             {
                 if (item.GetTeam() == "allies" && item.IsAlive)
                 {
@@ -327,7 +369,7 @@ namespace INF3
 
             foreach (var item in MapEdit.doors)
             {
-                item.SetField("hp", item.GetField<int>("maxhp"));
+                item.HP = item.MaxHP;
             }
         }
     }

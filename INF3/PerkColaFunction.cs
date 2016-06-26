@@ -6,12 +6,12 @@ using InfinityScript;
 
 namespace INF3
 {
-    public class PerkFunction : BaseScript
+    public class PerkColaFunction : BaseScript
     {
-        private static List<Entity> GetClosingZombies(Entity player)
+        public static List<Entity> GetClosingZombies(Entity player)
         {
             var list = new List<Entity>();
-            foreach (var ent in Utility.GetPlayers())
+            foreach (var ent in Utility.Players)
             {
                 if (ent.GetTeam() == "axis" && ent.Origin.DistanceTo(player.Origin) <= 500)
                 {
@@ -31,20 +31,29 @@ namespace INF3
             {
                 if (attacker.GetField<int>("perk_phd") == 1 && mod == "MOD_MELEE")
                 {
-                    switch (Utility.Rng.Next(2))
+                    switch (Utility.Random.Next(2))
                     {
                         case 0:
                             attacker.Health = 1000;
                             AfterDelay(100, () =>
                             {
-                                attacker.RadiusExploed(attacker.Origin);
+                                attacker.Notify("radius_exploed", attacker.Origin);
                             });
-                            AfterDelay(100, () =>
+                            AfterDelay(200, () =>
                             {
-                                attacker.Health = attacker.GetField<int>("maxhealth");
+                                attacker.SetMaxHealth();
                             });
                             break;
                     }
+                }
+                if (attacker.GetField<int>("perk_doubletap") == 1 && mod.Contains("BULLET"))
+                {
+                    var vector = point;
+                    vector.X -= 5;
+                    vector.Y -= 5;
+                    vector.Z -= 5;
+
+                    Call("magicbullet", weapon, vector, point, attacker);
                 }
                 if (attacker.GetField<int>("perk_deadshot") == 1 && hitLoc.ToLower().Contains("head"))
                 {
@@ -55,50 +64,40 @@ namespace INF3
                     attacker.SetField("perk_widow", 2);
                     if (player.Origin.DistanceTo(attacker.Origin) <= 200)
                     {
-                        attacker.Health = attacker.GetField<int>("maxhealth");
+                        attacker.SetMaxHealth();
                     }
                     WidowsWineThink(attacker, player.Origin);
                 }
-                if (attacker.GetField<int>("perk_widow") == 1 && !mod.Contains("BULLET"))
+                if (attacker.GetField<int>("perk_widow") == 1 && (mod == "MOD_MELEE" || mod == "MOD_EXPLOSIVE" || mod == "MOD_PROJECTILE_SPLASH" || mod == "MOD_GRENADE_SPLASH"))
                 {
                     player.SetField("speed", 0.5f);
                 }
             }
             else if (attacker.GetTeam() == "axis")
             {
-                if (player.GetField<int>("perk_phd") == 1 && mod != "MOD_MELEE" && !mod.Contains("BULLET"))
+                if (player.GetField<int>("perk_phd") == 1 && mod != "MOD_MELEE" && (mod == "MOD_EXPLOSIVE" || mod == "MOD_PROJECTILE_SPLASH" || mod == "MOD_GRENADE_SPLASH"))
                 {
-                    player.Health = player.GetField<int>("maxhealth");
+                    player.SetMaxHealth();
                 }
-                if (player.GetField<int>("perk_cherry") == 1 && mod.Contains("MELEE"))
+                if (player.GetField<int>("perk_cherry") == 1 && mod == "MOD_MELEE")
                 {
                     player.SetField("perk_cherry", 2);
-                    player.Health = player.GetField<int>("maxhealth");
+                    player.SetMaxHealth();
                     ElectricCherryThink(player);
-                }
-                if (player.GetField<int>("perk_widow") == 1 && mod == "MOD_MELEE")
-                {
-                    if (player.GetField<int>("perk_juggernog") == 0)
-                    {
-                        player.Health += damage / 2;
-                    }
-                    attacker.SetField("speed", 0.5f);
                 }
             }
         }
 
-        private void QuickReviveThink(Entity player)
+        public override void OnPlayerKilled(Entity player, Entity inflictor, Entity attacker, int damage, string mod, string weapon, Vector3 dir, string hitLoc)
         {
-
-        }
-
-        public static void DeadShotThink(Entity player)
-        {
-            player.OnInterval(100, e =>
+            if (player.GetTeam() == "allies")
             {
-                player.Call("recoilscaleon", 0);
-                return player.IsPlayer && player.GetField<int>("perk_deadshot") == 1;
-            });
+                if (player.GetField<int>("perk_revive") == 1)
+                {
+                    player.SetTeam("allies");
+                    player.GamblerText("Quick Revive!", new Vector3(1, 1, 1), new Vector3(1, 0, 0), 1, 0.85f);
+                }
+            }
         }
 
         private void ElectricCherryThink(Entity player)
@@ -106,14 +105,14 @@ namespace INF3
             var zombies = GetClosingZombies(player);
             foreach (var zombie in zombies)
             {
-                zombie.ElectricCherryExploed(player);
+                zombie.Notify("cherry_exploed", player);
             }
             AfterDelay(5000, () => player.SetField("perk_cherry", 1));
         }
 
         private void WidowsWineThink(Entity player, Vector3 origin)
         {
-            Effects.WidowsWineExploed(player, origin);
+            player.Notify("widow_exploed", origin);
             AfterDelay(15000, () => player.SetField("perk_widow", 1));
         }
     }

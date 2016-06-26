@@ -52,6 +52,8 @@ namespace INF3
                             player.Call("setvelocity", new Vector3(vel.X, vel.Y, 500));
                             player.SetField("readyjump", 0);
                             AfterDelay(1500, () => player.SetField("readyjump", 1));
+
+                            AIZDebug.DebugLog(GetType(), "Exo Jump: " + player.Name);
                         }
                     }
                 });
@@ -68,6 +70,8 @@ namespace INF3
                             player.Call("setvelocity", new Vector3(newvel.X * len, newvel.Y * len, vel.Z));
                             player.SetField("readydash", 0);
                             AfterDelay(1500, () => player.SetField("readydash", 1));
+
+                            AIZDebug.DebugLog(GetType(), "Exo Dash: " + player.Name);
                         }
                     }
                 });
@@ -96,7 +100,7 @@ namespace INF3
             if (player.GetField<int>("a pressed") == 1)
                 curDirection.Add(Call<Vector3>("anglestoright", player.Call<Vector3>("getplayerangles")) * -1);
             if (player.GetField<int>("s pressed") == 1)
-                curDirection.Add(Call<Vector3>("anglestoforward", player.Call<Vector3>("getplayerangles")) * -1);
+                curDirection.Add(Call<Vector3>("-", player.Call<Vector3>("getplayerangles")) * -1);
             if (player.GetField<int>("d pressed") == 1)
                 curDirection.Add(Call<Vector3>("anglestoright", player.Call<Vector3>("getplayerangles")));
 

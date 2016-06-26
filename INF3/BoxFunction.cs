@@ -6,401 +6,697 @@ using InfinityScript;
 
 namespace INF3
 {
-    public static class BoxFunction
+    public enum BoxType
     {
-        #region Cash Point System
+        Door,
+        PayDoor,
+        Zipline,
+        Teleporter,
+        Trampline,
+        Power,
+        Ammo,
+        Gambler,
+        RandomAirstrike,
+        GobbleGumMachine,
+        PerkColaMachine,
+        RandomPerkCola,
+    }
 
-        public static int GetCash(this Entity player)
+    public abstract class BoxEntity : IDisposable
+    {
+        private bool isObjective = false;
+        private int objectiveId = -1;
+
+        protected delegate string TriggerString(Entity player);
+        protected delegate void TriggerUse(Entity player);
+
+        public Entity Entity { get; private set; }
+        public Vector3 Origin
         {
-            return player.GetField<int>("aiz_cash");
+            get
+            {
+                return Entity.Origin;
+            }
+        }
+        public BoxType Type { get; protected set; }
+        public Entity Laptop { get; protected set; }
+        public string Icon { get; protected set; }
+        public HudElem Shader { get; protected set; }
+        public int ObjectiveId
+        {
+            get
+            {
+                return objectiveId;
+            }
+            protected set
+            {
+                if (!isObjective)
+                {
+                    isObjective = true;
+                }
+                objectiveId = value;
+            }
+        }
+        public int Range { get; protected set; }
+        public int Cost { get; protected set; }
+        protected TriggerString OnTriggerString { get; set; }
+        protected TriggerUse OnTriggerUse { get; set; }
+        public BoxEntity(BoxType type, Vector3 origin, Vector3 angle, int range)
+        {
+            Type = type;
+            Range = range;
+
+            if (Type == BoxType.Door || Type == BoxType.PayDoor)
+            {
+                Entity = Utility.Spawn("script_model", origin);
+                Entity.SetField("angles", angle);
+            }
+            else
+            {
+                if (Type == BoxType.Power && MapEdit.HasPower)
+                {
+                    return;
+                }
+                Entity = MapEdit.SpawnCrate(origin, angle);
+            }
+
+            OnTriggerUse += player => AIZDebug.DebugLog(GetType(), "Useby: " + player.Name);
+
+            AIZDebug.DebugLog(GetType(), "Spawn origin: " + Origin);
         }
 
-        public static void WinCash(this Entity player, int cash)
+        #region calls
+        public void Call(string func, params Parameter[] parameters)
         {
-            player.SetField("aiz_cash", player.GetField<int>("aiz_cash") + cash);
+            Entity.Call(func, parameters);
         }
 
-        public static void PayCash(this Entity player, int cash)
+        public void Call(int identifier, params Parameter[] parameters)
         {
-            player.SetField("aiz_cash", player.GetField<int>("aiz_cash") - cash);
+            Entity.Call(identifier, parameters);
         }
 
-        public static int GetPoint(this Entity player)
+        public T Call<T>(string func, params Parameter[] parameters)
         {
-            return player.GetField<int>("aiz_point");
+            return Entity.Call<T>(func, parameters);
         }
 
-        public static void WinPoint(this Entity player, int point)
+        public T Call<T>(int identifier, params Parameter[] parameters)
         {
-            player.SetField("aiz_point", player.GetField<int>("aiz_point") + point);
+            return Entity.Call<T>(identifier, parameters);
         }
 
-        public static void PayPoint(this Entity player, int point)
+        public T GetField<T>(string name)
         {
-            player.SetField("aiz_point", player.GetField<int>("aiz_point") - point);
+            return Entity.GetField<T>(name);
         }
 
+        public void SetField(string name, Parameter value)
+        {
+            Entity.SetField(name, value);
+        }
         #endregion
 
-        public static void UseDoor(Entity door, Entity player)
+        #region ontimer
+        public void OnInterval(int interval, Func<Entity, bool> function)
         {
-            if (!player.IsAlive) return;
-            if (door.GetField<int>("hp") > 0)
+            Entity.OnInterval(interval, function);
+        }
+
+        public void AfterDelay(int delay, Action<Entity> function)
+        {
+            Entity.AfterDelay(delay, function);
+        }
+        #endregion
+
+        public string UsableText(Entity player)
+        {
+            return (string)OnTriggerString.DynamicInvoke(player);
+        }
+
+        public void Usable(Entity player)
+        {
+            OnTriggerUse.DynamicInvoke(player);
+        }
+
+        public void Dispose()
+        {
+            Laptop.Notify("stop_rotate");
+
+            AfterDelay(100, e =>
+            {
+                Call("delete");
+                Laptop.Call("delete");
+                Shader.Call("destroy");
+
+                if (isObjective)
+                {
+                    Function.SetEntRef(-1);
+                    Function.Call("objective_delete", ObjectiveId);
+                }
+            });
+        }
+    }
+
+    public class Door : BoxEntity
+    {
+        public enum DoorState
+        {
+            Open,
+            Close,
+            Broken
+        }
+
+        public Vector3 OpenOrigin { get; private set; }
+        public Vector3 CloseOrigin { get; private set; }
+        public int Size { get; private set; }
+        public int Height { get; private set; }
+        public int HP { get; set; }
+        public int MaxHP { get; private set; }
+        public DoorState State { get; set; }
+
+        public Door(Vector3 open, Vector3 close, Vector3 angle, int size, int height, int hp, int range) : base(BoxType.Door, open, angle, range)
+        {
+            double num = ((size / 2) - 0.5) * -1.0;
+            for (int i = 0; i < size; i++)
+            {
+                Entity ent1 = MapEdit.SpawnCrate(open + new Vector3(0f, 30f, 0f) * ((float)num), new Vector3(0f, 0f, 0f));
+                ent1.Call("setmodel", "com_plasticcase_enemy");
+                ent1.Call("enablelinkto");
+                ent1.Call("linkto", Entity);
+                for (int j = 1; j < height; j++)
+                {
+                    Entity ent2 = MapEdit.SpawnCrate((open + new Vector3(0f, 30f, 0f) * ((float)num)) - (new Vector3(70f, 0f, 0f) * j), new Vector3(0f, 0f, 0f));
+                    ent2.Call("setmodel", "com_plasticcase_enemy");
+                    ent2.Call("enablelinkto");
+                    ent2.Call("linkto", Entity);
+                }
+                num++;
+            }
+
+            OpenOrigin = open;
+            CloseOrigin = close;
+            Size = size;
+            Height = height;
+            HP = hp;
+            MaxHP = hp;
+            State = DoorState.Open;
+
+            MapEdit.doors.Add(this);
+
+            OnTriggerString += player =>
             {
                 if (player.GetTeam() == "allies")
                 {
-                    if (door.GetField<string>("state") == "open")
+                    switch (State)
                     {
-                        door.Call("moveto", door.GetField<Vector3>("close"), 1);
-                        door.AfterDelay(300, ent =>
-                        {
-                            door.SetField("state", "close");
-                        });
-                    }
-                    else if (door.GetField<string>("state") == "close")
-                    {
-                        door.Call("moveto", door.GetField<Vector3>("open"), 1);
-                        door.AfterDelay(300, ent =>
-                        {
-                            door.SetField("state", "open");
-                        });
+                        case DoorState.Open:
+                            return "Door is Open. Press ^3[{+activate}] ^7to close it. (" + HP + "/" + MaxHP + ")";
+                        case DoorState.Close:
+                            return "Door is Closed. Press ^3[{+activate}] ^7to open it. (" + HP + "/" + MaxHP + ")";
+                        case DoorState.Broken:
+                            return "^1Door is Broken.";
                     }
                 }
                 else if (player.GetTeam() == "axis")
                 {
-                    if (door.GetField<string>("state") == "close")
+                    switch (State)
                     {
-                        if (player.GetField<int>("attackeddoor") == 0)
+                        case DoorState.Open:
+                            return "Door is Open.";
+                        case DoorState.Close:
+                            return "Press ^3[{+activate}] ^7to attack the door.";
+                        case DoorState.Broken:
+                            return "^1Door is Broken";
+                    }
+                }
+                return "";
+            };
+
+            OnTriggerUse += (player) =>
+            {
+                if (!player.IsAlive) return;
+                if (HP > 0)
+                {
+                    if (player.GetTeam() == "allies")
+                    {
+                        if (State == DoorState.Open)
                         {
-                            int hitchance = 0;
-                            switch (player.Call<string>("getstance"))
-                            {
-                                case "prone":
-                                    hitchance = 20;
-                                    break;
-                                case "couch":
-                                    hitchance = 45;
-                                    break;
-                                case "stand":
-                                    hitchance = 90;
-                                    break;
-                                default:
-                                    break;
-                            }
-                            if (Utility.Rng.Next(100) < hitchance)
-                            {
-                                door.SetField("hp", door.GetField<int>("hp") - 1);
-                                player.Call("iprintlnbold", "HIT: " + door.GetField<int>("hp") + "/" + door.GetField<int>("maxhp"));
-                            }
-                            else
-                            {
-                                player.Call("iprintlnbold", "^1MISS");
-                            }
-                            player.SetField("attackeddoor", 1);
-                            player.AfterDelay(1000, (e) => player.SetField("attackeddoor", 0));
+                            Close();
+                        }
+                        else if (State == DoorState.Close)
+                        {
+                            Open();
+                        }
+                    }
+                    else if (player.GetTeam() == "axis")
+                    {
+                        if (State == DoorState.Close)
+                        {
+                            Attack(player);
                         }
                     }
                 }
-            }
-            else if (door.GetField<int>("hp") == 0 && door.GetField<string>("state") != "broken")
-            {
-                if (door.GetField<string>("state") == "close")
-                    door.Call("moveto", door.GetField<Vector3>("open"), 1f);
-                door.SetField("state", "broken");
-            }
+                else if (HP == 0 && State != DoorState.Broken)
+                {
+                    if (State == DoorState.Open)
+                        Open();
+                    State = DoorState.Broken;
+                }
+            };
         }
 
-        public static void UsePayDoor(Entity door, Entity player)
+        public void Close()
         {
-            if (!player.IsAlive) return;
-            if (door.GetField<string>("state") == "close" && player.GetTeam() == "allies")
+            Call("moveto", CloseOrigin, 1);
+            AfterDelay(1000, ent =>
             {
-                if (player.GetCash() >= door.GetField<int>("pay"))
+                State = DoorState.Close;
+            });
+        }
+
+        public void Open()
+        {
+            Call("moveto", OpenOrigin, 1);
+            AfterDelay(1000, ent =>
+            {
+                State = DoorState.Open;
+            });
+        }
+
+        public void Attack(Entity player)
+        {
+            if (player.GetField<int>("attackeddoor") == 0)
+            {
+                int hitchance = 0;
+                switch (player.Call<string>("getstance"))
                 {
-                    player.PayCash(door.GetField<int>("pay"));
-                    door.Call("moveto", door.GetField<Vector3>("open"), 1);
-                    door.AfterDelay(300, ent =>
-                    {
-                        door.SetField("state", "open");
-                    });
+                    case "prone":
+                        hitchance = 20;
+                        break;
+                    case "couch":
+                        hitchance = 45;
+                        break;
+                    case "stand":
+                        hitchance = 90;
+                        break;
+                    default:
+                        break;
+                }
+                if (Utility.Random.Next(100) < hitchance)
+                {
+                    HP--;
+                    player.PrintlnBold(HP + "/" + MaxHP);
                 }
                 else
                 {
-                    player.Call("iprintln", "^1Not enough cash for cleanup barriers. Need ^2$^3" + door.GetField<int>("pay"));
+                    player.PrintlnBold("^1MISS");
                 }
+                player.SetField("attackeddoor", 1);
+                player.AfterDelay(1000, (e) => player.SetField("attackeddoor", 0));
             }
         }
+    }
 
-        public static void UseZipline(Entity ent, Entity player)
+    public class PayDoor : BoxEntity
+    {
+        public Vector3 OpenOrigin { get; private set; }
+        public int Size { get; private set; }
+        public int Height { get; private set; }
+        public bool IsClose { get; private set; }
+
+        public PayDoor(Vector3 open, Vector3 close, Vector3 angle, int size, int height, int cost, int range) : base(BoxType.PayDoor, close, angle, range)
         {
-            if (!player.IsAlive) return;
-            if (ent.GetField<string>("state") == "idle")
+            double num = ((size / 2) - 0.5) * -1.0;
+            for (int i = 0; i < size; i++)
             {
-                var start = ent.Origin;
-                ent.SetField("state", "using");
+                Entity ent1 = MapEdit.SpawnCrate(close + new Vector3(0f, 30f, 0f) * ((float)num), new Vector3(0f, 0f, 0f));
+                ent1.Call("setmodel", "com_plasticcase_enemy");
+                ent1.Call("enablelinkto");
+                ent1.Call("linkto", Entity);
+                for (int j = 1; j < height; j++)
+                {
+                    Entity ent2 = MapEdit.SpawnCrate((close + new Vector3(0f, 30f, 0f) * ((float)num)) - (new Vector3(70f, 0f, 0f) * j), new Vector3(0f, 0f, 0f));
+                    ent2.Call("setmodel", "com_plasticcase_enemy");
+                    ent2.Call("enablelinkto");
+                    ent2.Call("linkto", Entity);
+                }
+                num++;
+            }
 
-                ent.Call("clonebrushmodeltoscriptmodel", MapEdit._nullCollision);
-                player.Call("playerlinkto", ent);
-                ent.Call("moveto", ent.GetField<Vector3>("exit"), ent.GetField<int>("movetime"));
-                ent.AfterDelay(ent.GetField<int>("movetime") * 1000, e =>
+            IsClose = true;
+            OpenOrigin = open;
+            Size = size;
+            Height = height;
+            Cost = cost;
+
+            OnTriggerString += player =>
+            {
+                if (player.GetTeam() == "allies")
+                {
+                    if (IsClose)
+                    {
+                        return "Press ^3[{+activate}] ^7to cleanup barriers. [Cost: ^2$^3" + Cost + "^7]";
+                    }
+                }
+                return "";
+            };
+
+            OnTriggerUse += player =>
+            {
+                if (!player.IsAlive) return;
+                if (IsClose && player.GetTeam() == "allies")
+                {
+                    if (player.GetCash() >= Cost)
+                    {
+                        player.PayCash(Cost);
+                        Open();
+                    }
+                    else
+                    {
+                        player.PrintlnBold("^1Not enough cash for cleanup barriers. Need ^2$^3" + Cost);
+                    }
+                }
+            };
+        }
+
+        public void Open()
+        {
+            Call("moveto", OpenOrigin, 1);
+            IsClose = false;
+        }
+    }
+
+    public class Zipline : BoxEntity
+    {
+        public Vector3 Exit { get; private set; }
+        public int MoveTime { get; private set; }
+        public bool IsUsing { get; private set; }
+
+        public Zipline(Vector3 enter, Vector3 exit, Vector3 angle, int movetime) : base(BoxType.Zipline, enter, angle, 50)
+        {
+            Exit = exit;
+            IsUsing = false;
+            MoveTime = movetime;
+            Icon = "hudicon_neutral";
+            ObjectiveId = Hud.CreateObjective(Origin, Icon, "allies");
+
+            OnTriggerString += player =>
+            {
+                if (!IsUsing)
+                {
+                    return "Press ^3[{+activate}] ^7to use zipline.";
+                }
+                return "";
+            };
+
+            OnTriggerUse += player =>
+            {
+                if (!player.IsAlive) return;
+                if (!IsUsing)
+                {
+                    Move(player);
+                }
+            };
+        }
+
+        private void Move(Entity player)
+        {
+            var start = Origin;
+            IsUsing = true;
+
+            Call("clonebrushmodeltoscriptmodel", MapEdit._nullCollision);
+            player.Call("playerlinkto", Entity);
+            Call("moveto", Exit, MoveTime);
+            AfterDelay(MoveTime * 1000, e =>
+            {
+                if (player.Call<int>("islinked") != 0)
+                {
+                    player.Call("unlink");
+                    player.Call("setorigin", Exit);
+                }
+                Call("moveto", start, 1);
+            });
+            AfterDelay(MoveTime * 1000 + 2000, e =>
+            {
+                IsUsing = false;
+                Call("clonebrushmodeltoscriptmodel", MapEdit._airdropCollision);
+            });
+        }
+    }
+
+    public class Teleporter : BoxEntity
+    {
+        public Vector3 Exit { get; private set; }
+
+        public Teleporter(Vector3 origin, Vector3 exit, Vector3 angle) : base(BoxType.Teleporter, origin, angle, 50)
+        {
+            Exit = exit;
+            Laptop = MapEdit.CreateLaptop(Origin);
+            Icon = "hudicon_neutral";
+            Shader = Hud.CreateShader(Origin, Icon, "allies");
+            ObjectiveId = Hud.CreateObjective(Origin, Icon, "allies");
+            Cost = 500;
+
+            OnTriggerString += player =>
+            {
+                if (player.GetTeam() == "allies")
+                {
+                    if (Utility.GetDvar<int>("scr_aiz_power") == 0 || Utility.GetDvar<int>("scr_aiz_power") == 2)
+                    {
+                        return "Requires Electricity";
+                    }
+                    if (player.GetField<int>("usingteleport") == 0)
+                    {
+                        if (Utility.GetDvar<int>("bonus_fire_sale") == 1)
+                        {
+                            return "Press ^3[{+activate}] ^7to use teleporter. [Cost: ^2$^610^7]";
+                        }
+                        return "Press ^3[{+activate}] ^7to use teleporter. [Cost: ^2$^3" + Cost + "^7]";
+                    }
+                }
+                return "";
+            };
+
+            OnTriggerUse += player =>
+            {
+                if (!player.IsAlive) return;
+                if (player.GetTeam() == "allies" && player.GetField<int>("usingteleport") == 0)
+                {
+                    if (Utility.GetDvar<int>("bonus_fire_sale") == 1 && player.GetCash() >= 10)
+                    {
+                        player.PayCash(10);
+                        Teleport(player);
+
+                    }
+                    else if (player.GetCash() >= Cost)
+                    {
+                        player.PayCash(Cost);
+                        Teleport(player);
+                    }
+                    else
+                    {
+                        player.Println("^1Not enough cash for Teleporter. Need ^2$^3" + Cost);
+                    }
+                }
+            };
+        }
+
+        private void Teleport(Entity player)
+        {
+            player.SetField("usingteleport", 1);
+            Vector3 start = player.Origin;
+            player.ShellShock("frag_grenade_mp", 3);
+            player.AfterDelay(2000, e =>
+            {
+                player.Call("shellshock", "concussion_grenade_mp", 3);
+                player.Call("setorigin", Exit);
+            });
+            player.AfterDelay(32000, e =>
+            {
+                if (player.GetTeam() == "allies")
                 {
                     if (player.Call<int>("islinked") != 0)
                     {
                         player.Call("unlink");
-                        player.Call("setorigin", ent.GetField<Vector3>("exit"));
                     }
-                    ent.Call("moveto", start, 1);
-                });
-                ent.AfterDelay(ent.GetField<int>("movetime") * 1000 + 2000, en =>
-                {
-                    ent.SetField("state", "idle");
-                    ent.Call("clonebrushmodeltoscriptmodel", MapEdit._airdropCollision);
-                });
-            }
+                    player.ShellShock("concussion_grenade_mp", 3);
+                    player.Call("setorigin", start);
+                    player.SetField("usingteleport", 0);
+                }
+            });
         }
+    }
 
-        public static void UseTeleporter(Entity ent, Entity player)
+    public class Trampoline : BoxEntity
+    {
+        public int Height { get; private set; }
+
+        public Trampoline(Vector3 origin, Vector3 angle, int height) : base(BoxType.Trampline, origin, angle, 50)
         {
-            if (!player.IsAlive) return;
-            if (player.GetTeam() == "allies" && player.GetField<int>("usingtelepot") == 0)
+            Height = height;
+            Icon = "cardicon_tictacboom";
+            Shader = Hud.CreateShader(origin, Icon);
+            ObjectiveId = Hud.CreateObjective(origin, Icon);
+
+            OnTriggerString += player =>
             {
-                if (Function.Call<int>("getdvarint", "bonus_fire_sale") == 1 && player.GetCash() >= 10)
+                return "Press ^3[{+gostand}] ^7to boost jump.";
+            };
+
+            OnInterval(100, e =>
+            {
+                foreach (var player in Utility.Players)
                 {
-                    player.PayCash(10);
-                    player.SetField("usingtelepot", 1);
-                    Vector3 start = player.Origin;
-                    player.Call("shellshock", "frag_grenade_mp", 3);
-                    player.AfterDelay(2000, e =>
+                    if (player.IsAlive && Origin.DistanceTo(player.Origin) <= Range && player.Call<int>("IsOnGround") == 1)
                     {
-                        player.Call("shellshock", "concussion_grenade_mp", 3);
-                        player.Call("setorigin", ent.GetField<Vector3>("exit"));
-                    });
-                    player.AfterDelay(32000, en =>
-                    {
-                        if (player.GetTeam() == "allies")
-                        {
-                            if (player.Call<int>("islinked") != 0)
-                            {
-                                player.Call("unlink");
-                            }
-                            player.Call("shellshock", "concussion_grenade_mp", 3);
-                            player.Call("setorigin", start);
-                            player.SetField("usingtelepot", 0);
-                        }
-                    });
+                        DoJump(player);
+                    }
                 }
-                else if (player.GetCash() >= 500)
-                {
-                    player.PayCash(500);
-                    player.SetField("usingtelepot", 1);
-                    Vector3 start = player.Origin;
-                    player.Call("shellshock", "frag_grenade_mp", 3);
-                    player.AfterDelay(2000, e =>
-                    {
-                        player.Call("shellshock", "concussion_grenade_mp", 3);
-                        player.Call("setorigin", ent.GetField<Vector3>("exit"));
-                    });
-                    player.AfterDelay(32000, en =>
-                    {
-                        if (player.GetTeam() == "allies")
-                        {
-                            if (player.Call<int>("islinked") != 0)
-                            {
-                                player.Call("unlink");
-                            }
-                            player.Call("shellshock", "concussion_grenade_mp", 3);
-                            player.Call("setorigin", start);
-                            player.SetField("usingtelepot", 0);
-                        }
-                    });
-                }
-                else
-                {
-                    player.Call("iprintln", "^1Not enough cash for Teleporter. Need ^2$^3500");
-                }
-            }
+
+                return true;
+            });
         }
 
-        public static void UseTrampoline(Entity ent, Entity player)
+        public void DoJump(Entity player)
         {
             if (!player.IsAlive) return;
             var vel = player.Call<Vector3>("getvelocity");
-            player.Call("setvelocity", new Vector3(vel.X, vel.Y, ent.GetField<int>("high")));
+            player.Call("setvelocity", new Vector3(vel.X, vel.Y, Height));
         }
+    }
 
-        public static void UsePower(Entity ent, Entity player)
+    public class Power : BoxEntity
+    {
+        public Power(Vector3 origin, Vector3 angle) : base(BoxType.Power, origin, angle, 50)
         {
-            if (!player.IsAlive) return;
-            if (player.GetTeam() == "allies")
+            if (MapEdit.HasPower)
             {
-                if (player.GetCash() >= 700)
-                {
-                    player.PayCash(700);
-                    ent.SetField("player", player.Name);
-                    Function.Call("setdvar", "scr_aiz_power", 2);
-                }
-                else
-                {
-                    player.Call("iprintln", "^1Not enough cash for activate the electricity. Need ^2$^3700");
-                }
+                return;
             }
-        }
 
-        public static void UseAmmo(Entity player)
-        {
-            if (!player.IsAlive) return;
-            if (player.GetTeam() == "allies")
-            {
-                if (Function.Call<int>("getdvarint", "bonus_fire_sale") == 1 && player.GetCash() >= 10)
-                {
-                    player.PayCash(10);
-                    player.GiveAmmo();
-                    player.Call("playlocalsound", "ammo_crate_use");
-                }
-                else if (player.GetCash() >= 100)
-                {
-                    player.PayCash(100);
-                    player.GiveAmmo();
-                    player.Call("playlocalsound", "ammo_crate_use");
-                }
-                else
-                {
-                    player.Call("iprintln", "^1Not enough cash for Ammo. Need ^2$^3100");
-                }
-            }
-        }
+            MapEdit.HasPower = true;
+            Icon = "cardicon_bulb";
+            Shader = Hud.CreateShader(Origin, Icon, "allies");
+            ObjectiveId = Hud.CreateObjective(Origin, Icon, "allies");
+            Cost = 700;
 
-        public static void UseGambler(Entity ent, Entity player)
-        {
-            if (!player.IsAlive) return;
-            if (ent.GetField<string>("state") != "idle") return;
-            if (player.GetTeam() == "allies")
-            {
-                if (Function.Call<int>("getdvarint", "bonus_fire_sale") == 1 && player.GetCash() >= 10 && player.GetField<int>("isgambling") == 0)
-                {
-                    player.PayCash(10);
-                    player.SetField("isgambling", 0);
-                    ent.SetField("state", "using");
-                    Entity laptop = ent.GetField<Entity>("laptop");
-                    laptop.Call("moveto", laptop.Origin + new Vector3(0, 0, 30), 2);
-                    laptop.AfterDelay(8000, e =>
-                    {
-                        laptop.Call("moveto", laptop.Origin - new Vector3(0, 0, 30), 2);
-                    });
-                    laptop.AfterDelay(10000, e =>
-                    {
-                        ent.SetField("state", "idle");
-                    });
-                    player.Gamble();
-                }
-                else if (player.GetCash() >= 500 && player.GetField<int>("isgambling") == 0)
-                {
-                    player.PayCash(500);
-                    player.SetField("isgambling", 0);
-                    ent.SetField("state", "using");
-                    Entity laptop = ent.GetField<Entity>("laptop");
-                    laptop.Call("moveto", laptop.Origin + new Vector3(0, 0, 30), 2);
-                    laptop.AfterDelay(8000, e =>
-                    {
-                        laptop.Call("moveto", laptop.Origin - new Vector3(0, 0, 30), 2);
-                    });
-                    laptop.AfterDelay(10000, e =>
-                    {
-                        ent.SetField("state", "idle");
-                    });
-                    player.Gamble();
-                }
-                else
-                {
-                    player.Call("iprintln", "^1Not enough cash for Gambler. Need ^2$^3500");
-                }
-            }
-        }
+            Utility.SetDvar("scr_aiz_power", 0);
 
-        public static void UseAirstrike(Entity player)
-        {
-            if (!player.IsAlive) return;
-            if (player.GetTeam() == "allies")
+            OnTriggerString += player =>
             {
-                if (player.GetPoint() >= 10)
+                if (player.GetTeam() == "allies")
                 {
-                    player.PayPoint(10);
-                    player.GiveRandomAirstrike();
-                }
-                else
-                {
-                    player.Call("iprintln", "^1Not enough ^5Bonus Points ^1for Airstrike. Need ^310 ^5Bonus Points");
-                }
-            }
-        }
-
-        public static void UsePerk(Entity player, PerkCola perk)
-        {
-            if (!player.IsAlive) return;
-            if (player.GetTeam() == "allies")
-            {
-                if (Function.Call<int>("getdvarint", "bonus_fire_sale") == 1 && player.GetCash() >= 10)
-                {
-                    if (player.GetField<int>("aiz_perks") >= 5)
+                    if (Utility.GetDvar<int>("scr_aiz_power") == 0)
                     {
-                        player.Call("iprintln", "^1You already have 5 Perk-a-Cola.");
-                        return;
+                        return "Press ^3[{+activate}] ^7to activate the electricity. [Cost: ^2$^3" + Cost + "^7]";
                     }
-                    if (PerkCola.HasPerkCola(player, perk))
-                    {
-                        player.Call("iprintln", "^1You already have " + perk.FullName + ".");
-                        return;
-                    }
-                    player.PayCash(10);
-                    PerkCola.GivePerkCola(player, perk);
                 }
-                else if (player.GetCash() >= perk.Pay)
-                {
-                    if (player.GetField<int>("aiz_perks") >= 5)
-                    {
-                        player.Call("iprintln", "^1You already have 5 Perk-a-Cola.");
-                        return;
-                    }
-                    if (PerkCola.HasPerkCola(player, perk))
-                    {
-                        player.Call("iprintln", "^1You already have " + perk.FullName + ".");
-                        return;
-                    }
-                    player.PayCash(perk.Pay);
-                    PerkCola.GivePerkCola(player, perk);
-                }
-                else
-                {
-                    player.Call("iprintln", "^1Not enough cash for " + perk.FullName + ". Need ^2$^3" + perk.Pay);
-                }
-            }
-        }
+                return "";
+            };
 
-        public static void UseRandomPerk(Entity ent, Entity player)
-        {
-            if (!player.IsAlive) return;
-            if (player.GetTeam() == "allies")
+            OnTriggerUse += player =>
             {
-                if (player.GetPoint() >= 10)
+                if (!player.IsAlive) return;
+                if (player.GetTeam() == "allies")
                 {
-                    if (player.GetField<int>("aiz_perks") >= 5)
+                    if (player.GetCash() >= Cost)
                     {
-                        player.Call("iprintln", "^1You already have 5 Perk-a-Cola.");
-                        return;
+                        player.PayCash(Cost);
+                        OpenPower(player);
                     }
-                    player.PayPoint(10);
-                    player.AfterDelay(1000, e => player.RandomPerkCola());
+                    else
+                    {
+                        player.Println("^1Not enough cash for activate the electricity. Need ^2$^3" + Cost);
+                    }
                 }
-                else
-                {
-                    player.Call("iprintln", "^1Not enough ^5Bonus Points ^1for Der Wunderfizz. Need ^310 ^5Bonus Points");
-                }
-            }
+            };
         }
 
-        public static void GiveAmmo(this Entity player)
+        private void OpenPower(Entity player)
+        {
+            Utility.SetDvar("scr_aiz_power", 2);
+
+            Vector3 origin2 = Origin;
+            origin2.Z += 1000f;
+
+            Call("clonebrushmodeltoscriptmodel", MapEdit._nullCollision);
+            Call("moveto", origin2, 2.3f);
+            AfterDelay(2300, e =>
+            {
+                Effects.PlayFx(Effects.empfx, origin2);
+                Entity.PlaySoundAsMaster(Sound.BombExploedSound);
+                var messages = new List<string>
+                {
+                    player.Name,
+                    "Activated Power!",
+                };
+                foreach (var item in Utility.Players)
+                {
+                    if (item.GetTeam() == "allies")
+                    {
+                        item.WelcomeMessage(messages, new Vector3(1, 1, 1), new Vector3(1, 0.5f, 0.3f), 1, 0.85f);
+                    }
+                }
+                Utility.SetDvar("scr_aiz_power", 1);
+            });
+            AfterDelay(2400, e => Dispose());
+        }
+    }
+
+    public class Ammo : BoxEntity
+    {
+        public Ammo(Vector3 origin, Vector3 angle) : base(BoxType.Ammo, origin, angle, 50)
+        {
+            Laptop = MapEdit.CreateLaptop(Origin);
+            Icon = "waypoint_ammo_friendly";
+            Shader = Hud.CreateShader(Origin, Icon, "allies");
+            ObjectiveId = Hud.CreateObjective(Origin, Icon, "allies");
+            Cost = 100;
+
+            OnTriggerString += player =>
+            {
+                if (player.GetTeam() == "allies")
+                {
+                    if (Utility.GetDvar<int>("bonus_fire_sale") == 1)
+                    {
+                        return "Press ^3[{+activate}] ^7to buy ammo. [Cost: ^2$^610^7]";
+                    }
+                    return "Press ^3[{+activate}] ^7to buy ammo. [Cost: ^2$^3" + Cost + "^7]";
+                }
+                return "";
+            };
+
+            OnTriggerUse += player =>
+            {
+                if (!player.IsAlive) return;
+                if (player.GetTeam() == "allies")
+                {
+                    if (Function.Call<int>("getdvarint", "bonus_fire_sale") == 1 && player.GetCash() >= 10)
+                    {
+                        player.PayCash(10);
+                        MaxAmmo(player);
+                        player.PlayLocalSound(Sound.AmmoCrateSound);
+                    }
+                    else if (player.GetCash() >= Cost)
+                    {
+                        player.PayCash(Cost);
+                        MaxAmmo(player);
+                        player.PlayLocalSound(Sound.AmmoCrateSound);
+                    }
+                    else
+                    {
+                        player.Println("^1Not enough cash for Ammo. Need ^2$^3" + Cost);
+                    }
+                }
+            };
+        }
+
+        public static void MaxAmmo(Entity player)
         {
             player.Call("givemaxammo", Sharpshooter._firstWeapon.Code);
+            player.Call("givemaxammo", Sharpshooter._secondeWeapon.Code);
+
             if (player.GetField<int>("perk_mulekick") == 1)
             {
                 player.Call("givemaxammo", Sharpshooter._mulekickWeapon.Code);
@@ -419,226 +715,359 @@ namespace INF3
             player.Call("givemaxammo", "trophy_mp");
             player.Call("givemaxammo", "flag_grenade_mp");
         }
+    }
 
-        private static void Gamble(this Entity player)
+    public class Gambler : BoxEntity
+    {
+        public bool IsUsing { get; set; }
+
+        public Gambler(Vector3 origin, Vector3 angle) : base(BoxType.Gambler, origin, angle, 50)
         {
-            player.Call("iprintlnbold", new Parameter[] { "^210" });
-            player.Call("playlocalsound", new Parameter[] { "ui_mp_nukebomb_timer" });
-            player.AfterDelay(1000, e => player.Call("iprintlnbold", "^29"));
-            player.AfterDelay(1000, e => player.Call("playlocalsound", "ui_mp_nukebomb_timer"));
-            player.AfterDelay(2000, e => player.Call("iprintlnbold", "^28"));
-            player.AfterDelay(2000, e => player.Call("playlocalsound", "ui_mp_nukebomb_timer"));
-            player.AfterDelay(3000, e => player.Call("iprintlnbold", "^27"));
-            player.AfterDelay(3000, e => player.Call("playlocalsound", "ui_mp_nukebomb_timer"));
-            player.AfterDelay(4000, e => player.Call("iprintlnbold", "^26"));
-            player.AfterDelay(4000, e => player.Call("playlocalsound", "ui_mp_nukebomb_timer"));
-            player.AfterDelay(5000, e => player.Call("iprintlnbold", "^25"));
-            player.AfterDelay(5000, e => player.Call("playlocalsound", "ui_mp_nukebomb_timer"));
-            player.AfterDelay(6000, e => player.Call("iprintlnbold", "^24"));
-            player.AfterDelay(6000, e => player.Call("playlocalsound", "ui_mp_nukebomb_timer"));
-            player.AfterDelay(7000, e => player.Call("iprintlnbold", "^23"));
-            player.AfterDelay(7000, e => player.Call("playlocalsound", "ui_mp_nukebomb_timer"));
-            player.AfterDelay(8000, e => player.Call("iprintlnbold", "^22"));
-            player.AfterDelay(8000, e => player.Call("playlocalsound", "ui_mp_nukebomb_timer"));
-            player.AfterDelay(9000, e => player.Call("iprintlnbold", "^21"));
-            player.AfterDelay(9000, e => player.Call("playlocalsound", "ui_mp_nukebomb_timer"));
-            player.AfterDelay(10000, e =>
+            IsUsing = false;
+            Laptop = MapEdit.CreateLaptop(Origin);
+            Icon = "cardicon_8ball";
+            Shader = Hud.CreateShader(Origin, Icon, "allies");
+            ObjectiveId = Hud.CreateObjective(Origin, Icon, "allies");
+            Cost = 500;
+
+            OnTriggerString += player =>
             {
-                switch (Utility.Rng.Next(22))
+                if (player.GetTeam() == "allies")
                 {
-                    case 0:
-                        player.PrintGambleInfo("You win nothing.", GambleType.Bad);
-                        break;
-                    case 1:
-                        player.PrintGambleInfo("You win $500.", GambleType.Good);
-                        player.WinCash(500);
-                        break;
-                    case 2:
-                        player.PrintGambleInfo("You win $1000.", GambleType.Good);
-                        player.WinCash(1000);
-                        break;
-                    case 3:
-                        player.PrintGambleInfo("You win $2000.", GambleType.Good);
-                        player.WinCash(2000);
-                        break;
-                    case 4:
-                        player.PrintGambleInfo("You lose $500.", GambleType.Bad);
-                        player.PayCash(500);
-                        break;
-                    case 5:
-                        player.PrintGambleInfo("You lose all money.", GambleType.Bad);
-                        player.SetField("aiz_cash", 0);
-                        break;
-                    case 6:
-                        player.PrintGambleInfo("You win $10000.", GambleType.Excellent);
-                        player.WinCash(10000);
-                        break;
-                    case 7:
-                        player.PrintGambleInfo("You win 10 bonus Points.", GambleType.Good);
-                        player.WinPoint(10);
-                        break;
-                    case 8:
-                        player.PrintGambleInfo("You win 50 bonus Points.", GambleType.Excellent);
-                        player.WinPoint(50);
-                        break;
-                    case 9:
-                        player.PrintGambleInfo("You lose all bonus Points.", GambleType.Bad);
-                        player.SetField("aiz_point", 0);
-                        break;
-                    case 10:
-                        player.PrintGambleInfo("You live or die after 5 second.", GambleType.Bad);
-                        player.AfterDelay(1000, ex => player.Call("iprintlnbold", "^15"));
-                        player.AfterDelay(1000, ex => player.Call("playlocalsound", "ui_mp_nukebomb_timer"));
-                        player.AfterDelay(2000, ex => player.Call("iprintlnbold", "^14"));
-                        player.AfterDelay(2000, ex => player.Call("playlocalsound", "ui_mp_nukebomb_timer"));
-                        player.AfterDelay(3000, ex => player.Call("iprintlnbold", "^13"));
-                        player.AfterDelay(3000, ex => player.Call("playlocalsound", "ui_mp_nukebomb_timer"));
-                        player.AfterDelay(4000, ex => player.Call("iprintlnbold", "^12"));
-                        player.AfterDelay(4000, ex => player.Call("playlocalsound", "ui_mp_nukebomb_timer"));
-                        player.AfterDelay(5000, ex => player.Call("iprintlnbold", "^11"));
-                        player.AfterDelay(5000, ex => player.Call("playlocalsound", "ui_mp_nukebomb_timer"));
-                        player.AfterDelay(6000, ex =>
+                    if (Utility.GetDvar<int>("bonus_fire_sale") == 1)
+                    {
+                        return "Press ^3[{+activate}] ^7to gamble. [Cost: ^2$^610^7]";
+                    }
+                    return "Press ^3[{+activate}] ^7to gamble. [Cost: ^2$^3" + Cost + "^7]";
+                }
+                return "";
+            };
+
+            OnTriggerUse += player =>
+            {
+                if (IsUsing) return;
+                if (!player.IsAlive) return;
+                if (player.GetTeam() == "allies" && player.GetField<int>("isgambling") == 1)
+                {
+                    if (Function.Call<int>("getdvarint", "bonus_fire_sale") == 1 && player.GetCash() >= 10)
+                    {
+                        player.PayCash(10);
+                        Gamble(player);
+                    }
+                    else if (player.GetCash() >= Cost)
+                    {
+                        player.PayCash(Cost);
+                        Gamble(player);
+                    }
+                    else
+                    {
+                        player.Println("^1Not enough cash for Gambler. Need ^2$^3" + Cost);
+                    }
+                }
+            };
+        }
+
+        private void Gamble(Entity player)
+        {
+            IsUsing = true;
+            player.SetField("isgambling", 1);
+
+            if (player.GetField<int>("gobble_coagulant") == 1)
+            {
+                Laptop.Call("moveto", Laptop.Origin + new Vector3(0, 0, 30), 1);
+                Laptop.AfterDelay(4000, e =>
+                {
+                    Laptop.Call("moveto", Laptop.Origin - new Vector3(0, 0, 30), 1);
+                });
+
+                player.AfterDelay(1000, ex => player.PrintlnBold("^55"));
+                player.AfterDelay(1000, ex => player.PlayLocalSound("ui_mp_nukebomb_timer"));
+                player.AfterDelay(2000, ex => player.PrintlnBold("^54"));
+                player.AfterDelay(2000, ex => player.PlayLocalSound("ui_mp_nukebomb_timer"));
+                player.AfterDelay(3000, ex => player.PrintlnBold("^53"));
+                player.AfterDelay(3000, ex => player.PlayLocalSound("ui_mp_nukebomb_timer"));
+                player.AfterDelay(4000, ex => player.PrintlnBold("^52"));
+                player.AfterDelay(4000, ex => player.PlayLocalSound("ui_mp_nukebomb_timer"));
+                player.AfterDelay(5000, ex => player.PrintlnBold("^51"));
+                player.AfterDelay(5000, ex => player.PlayLocalSound("ui_mp_nukebomb_timer"));
+                player.AfterDelay(6000, ex => GambleThink(player));
+                player.AfterDelay(6000, ex => IsUsing = false);
+            }
+            else
+            {
+                Laptop.Call("moveto", Laptop.Origin + new Vector3(0, 0, 30), 2);
+                Laptop.AfterDelay(8000, e =>
+                {
+                    Laptop.Call("moveto", Laptop.Origin - new Vector3(0, 0, 30), 2);
+                });
+
+                player.PrintlnBold("^210");
+                player.PlayLocalSound("ui_mp_nukebomb_timer");
+                player.AfterDelay(1000, e => player.PrintlnBold("^29"));
+                player.AfterDelay(1000, e => player.PlayLocalSound("ui_mp_nukebomb_timer"));
+                player.AfterDelay(2000, e => player.PrintlnBold("^28"));
+                player.AfterDelay(2000, e => player.PlayLocalSound("ui_mp_nukebomb_timer"));
+                player.AfterDelay(3000, e => player.PrintlnBold("^27"));
+                player.AfterDelay(3000, e => player.PlayLocalSound("ui_mp_nukebomb_timer"));
+                player.AfterDelay(4000, e => player.PrintlnBold("^26"));
+                player.AfterDelay(4000, e => player.PlayLocalSound("ui_mp_nukebomb_timer"));
+                player.AfterDelay(5000, e => player.PrintlnBold("^25"));
+                player.AfterDelay(5000, e => player.PlayLocalSound("ui_mp_nukebomb_timer"));
+                player.AfterDelay(6000, e => player.PrintlnBold("^24"));
+                player.AfterDelay(6000, e => player.PlayLocalSound("ui_mp_nukebomb_timer"));
+                player.AfterDelay(7000, e => player.PrintlnBold("^23"));
+                player.AfterDelay(7000, e => player.PlayLocalSound("ui_mp_nukebomb_timer"));
+                player.AfterDelay(8000, e => player.PrintlnBold("^22"));
+                player.AfterDelay(8000, e => player.PlayLocalSound("ui_mp_nukebomb_timer"));
+                player.AfterDelay(9000, e => player.PrintlnBold("^21"));
+                player.AfterDelay(9000, e => player.PlayLocalSound("ui_mp_nukebomb_timer"));
+                player.AfterDelay(10000, e => GambleThink(player));
+                player.AfterDelay(10000, ex => IsUsing = false);
+            }
+        }
+
+        private void GambleThink(Entity player)
+        {
+            if (player.GetCurrentGobbleGum().Type == GobbleGumType.LuckyCrit)
+            {
+                player.SetField("reset_gambler_ready", 1);
+                player.AfterDelay(1000, e => player.SetField("reset_gambler_ready", 0));
+            }
+
+            switch (Utility.Random.Next(22))
+            {
+                case 0:
+                    PrintGambleInfo(player, "You win nothing.", GambleType.Bad);
+                    break;
+                case 1:
+                    PrintGambleInfo(player, "You win $500.", GambleType.Good);
+                    player.WinCash(500);
+                    break;
+                case 2:
+                    PrintGambleInfo(player, "You win $1000.", GambleType.Good);
+                    player.WinCash(1000);
+                    break;
+                case 3:
+                    PrintGambleInfo(player, "You win $2000.", GambleType.Good);
+                    player.WinCash(2000);
+                    break;
+                case 4:
+                    PrintGambleInfo(player, "You lose $500.", GambleType.Bad);
+                    player.PayCash(500);
+                    break;
+                case 5:
+                    PrintGambleInfo(player, "You lose all money.", GambleType.Bad);
+                    player.ClearCash();
+                    break;
+                case 6:
+                    PrintGambleInfo(player, "You win $10000.", GambleType.Excellent);
+                    player.WinCash(10000);
+                    break;
+                case 7:
+                    PrintGambleInfo(player, "You win 10 Bonus Points.", GambleType.Good);
+                    player.WinPoint(10);
+                    break;
+                case 8:
+                    PrintGambleInfo(player, "You win 50 Bonus Points.", GambleType.Excellent);
+                    player.WinPoint(50);
+                    break;
+                case 9:
+                    PrintGambleInfo(player, "You lose all Bonus Points.", GambleType.Bad);
+                    player.ClearPoint();
+                    break;
+                case 10:
+                    PrintGambleInfo(player, "You live or die after 5 second.", GambleType.Bad);
+                    player.AfterDelay(1000, ex => player.PrintlnBold("^15"));
+                    player.AfterDelay(1000, ex => player.PlayLocalSound("ui_mp_nukebomb_timer"));
+                    player.AfterDelay(2000, ex => player.PrintlnBold("^14"));
+                    player.AfterDelay(2000, ex => player.PlayLocalSound("ui_mp_nukebomb_timer"));
+                    player.AfterDelay(3000, ex => player.PrintlnBold("^13"));
+                    player.AfterDelay(3000, ex => player.PlayLocalSound("ui_mp_nukebomb_timer"));
+                    player.AfterDelay(4000, ex => player.PrintlnBold("^12"));
+                    player.AfterDelay(4000, ex => player.PlayLocalSound("ui_mp_nukebomb_timer"));
+                    player.AfterDelay(5000, ex => player.PrintlnBold("^11"));
+                    player.AfterDelay(5000, ex => player.PlayLocalSound("ui_mp_nukebomb_timer"));
+                    player.AfterDelay(6000, ex =>
+                    {
+                        switch (Utility.Random.Next(2))
                         {
-                            switch (Utility.Rng.Next(2))
+                            case 0:
+                                PrintGambleInfo(player, "You live!", GambleType.Good);
+                                break;
+                            case 1:
+                                PrintGambleInfo(player, "You die!", GambleType.Bad);
+                                if (player.GetCurrentGobbleGum().Type == GobbleGumType.NoGamble)
+                                {
+                                    player.ActiveGobbleGum();
+                                }
+                                else
+                                {
+                                    PrintGambleInfo(player, "You die!", GambleType.Bad);
+                                    player.Notify("self_exploed");
+                                }
+                                break;
+                        }
+                    });
+                    break;
+                case 11:
+                    PrintGambleInfo(player, "Gambler Restart.", GambleType.Bad);
+                    player.AfterDelay(1000, ex => Gamble(player));
+                    return;
+                case 12:
+                    PrintGambleInfo(player, "Robbed all cash.", GambleType.Excellent);
+                    int cash = 0;
+                    foreach (var item in Utility.Players)
+                    {
+                        if (item.GetTeam() == "allies" && item.IsAlive && item != player)
+                        {
+                            if (item.GetCurrentGobbleGum().Type == GobbleGumType.Strongbox)
                             {
-                                case 0:
-                                    player.PrintGambleInfo("You live!", GambleType.Good);
-                                    break;
-                                case 1:
-                                    player.PrintGambleInfo("You die!", GambleType.Bad);
-                                    player.SelfExploed();
-                                    break;
+                                item.ActiveGobbleGum();
                             }
-                        });
-                        break;
-                    case 11:
-                        player.PrintGambleInfo("Gambler Restart.", GambleType.Bad);
-                        player.AfterDelay(1000, ex => player.Gamble());
-                        return;
-                    case 12:
-                        player.PrintGambleInfo("Robbed all cash.", GambleType.Excellent);
-                        int cash = 0;
-                        foreach (var item in Utility.GetPlayers())
-                        {
-                            if (item.GetTeam() == "allies" && item.IsAlive && item != player)
+                            else
                             {
                                 item.GamblerText("Player " + player.Name + " robbed you all cash.", new Vector3(1, 1, 1), new Vector3(1, 0, 0), 1, 0.85f);
                                 cash += item.GetCash();
-                                item.SetField("cash", 0);
+                                item.ClearCash();
                             }
                         }
-                        player.WinCash(cash);
-                        break;
-                    case 13:
-                        player.PrintGambleInfo("Incantation", GambleType.Bad);
-                        player.SetField("incantation", 1);
-                        break;
-                    case 14:
-                        player.PrintGambleInfo("Give all human $500", GambleType.Excellent);
-                        player.WinCash(500);
-                        foreach (var item in Utility.GetPlayers())
+                    }
+                    player.WinCash(cash);
+                    break;
+                case 13:
+                    PrintGambleInfo(player, "Incantation", GambleType.Bad);
+                    player.SetField("incantation", 1);
+                    break;
+                case 14:
+                    PrintGambleInfo(player, "Give all human $500", GambleType.Excellent);
+                    player.WinCash(500);
+                    foreach (var item in Utility.Players)
+                    {
+                        if (item.GetTeam() == "allies" && item.IsAlive && item != player)
                         {
-                            if (item.GetTeam() == "allies" && item.IsAlive && item != player)
-                            {
-                                item.WinCash(500);
-                                item.GamblerText("Player " + player.Name + " give you $500.", new Vector3(1, 1, 1), new Vector3(0, 1, 0), 1, 0.85f);
-                            }
+                            item.WinCash(500);
+                            item.GamblerText("Player " + player.Name + " give you $500.", new Vector3(1, 1, 1), new Vector3(0, 1, 0), 1, 0.85f);
                         }
-                        break;
-                    case 15:
-                        player.PrintGambleInfo("You infected.", GambleType.Bad);
-                        player.SelfExploed();
-                        break;
-                    case 16:
-                        player.PrintGambleInfo("You lose all weapon.", GambleType.Bad);
-                        player.TakeAllWeapons();
-                        break;
-                    case 17:
-                        player.PrintGambleInfo("You win riotshield in your back.", GambleType.Good);
-                        player.Call("attachshieldmodel", "weapon_riot_shield_mp", "tag_shield_back");
-                        break;
-                    case 18:
-                        player.PrintGambleInfo("Surprise!", GambleType.Terrible);
-                        foreach (var item in Utility.GetPlayers())
+                    }
+                    break;
+                case 15:
+                    PrintGambleInfo(player, "You infected.", GambleType.Bad);
+                    if (player.GetCurrentGobbleGum().Type == GobbleGumType.NoGamble)
+                    {
+                        player.ActiveGobbleGum();
+                    }
+                    else
+                    {
+                        player.Notify("self_exploed");
+                    }
+                    break;
+                case 16:
+                    PrintGambleInfo(player, "You lose all weapon.", GambleType.Bad);
+                    player.TakeAllWeapons();
+                    break;
+                case 17:
+                    PrintGambleInfo(player, "You win riotshield in your back.", GambleType.Good);
+                    player.Call("attachshieldmodel", "weapon_riot_shield_mp", "tag_shield_back");
+                    break;
+                case 18:
+                    PrintGambleInfo(player, "Surprise!", GambleType.Terrible);
+                    foreach (var item in Utility.Players)
+                    {
+                        if (item.GetTeam() == "allies" && item.IsAlive)
                         {
-                            if (item.GetTeam() == "allies" && item.IsAlive)
+                            if (item.GetCurrentGobbleGum().Type == GobbleGumType.Strongbox)
                             {
-                                item.SetField("aiz_cash", 0);
-                                item.SetField("aiz_point", 0);
+                                item.ActiveGobbleGum();
+                            }
+                            else
+                            {
+                                item.ClearCash();
+                                item.ClearPoint();
                                 if (player != item)
                                 {
                                     item.GamblerText("Surprise!", new Vector3(0, 0, 0), new Vector3(1, 1, 1), 1, 0);
                                 }
                             }
                         }
-                        break;
-                    case 19:
-                        player.PrintGambleInfo("You win a random Perk-a-Cola.", GambleType.Good);
-                        player.RandomPerkCola();
-                        break;
-                    case 20:
-                        player.PrintGambleInfo("You lose all Perk-a-Cola.", GambleType.Terrible);
-                        PerkCola.TakeAllPerkCola(player);
-                        break;
-                    case 21:
-                        player.PrintGambleInfo("Other humans die or you die after 5 second.", GambleType.Terrible);
-                        foreach (var item in Utility.GetPlayers())
-                        {
-                            if (item.GetTeam() == "allies" && item.IsAlive)
-                            {
-                                if (player != item)
-                                {
-                                    item.GamblerText("You die or " + player.Name + " die after 5 second.", new Vector3(0, 0, 0), new Vector3(1, 1, 1), 1, 0);
-                                }
+                    }
+                    break;
+                case 19:
+                    PrintGambleInfo(player, "You win a random Perk-a-Cola.", GambleType.Good);
 
-                                item.AfterDelay(1000, ex => item.Call("iprintlnbold", "^05"));
-                                item.AfterDelay(1000, ex => item.Call("playlocalsound", "ui_mp_nukebomb_timer"));
-                                item.AfterDelay(2000, ex => item.Call("iprintlnbold", "^04"));
-                                item.AfterDelay(2000, ex => item.Call("playlocalsound", "ui_mp_nukebomb_timer"));
-                                item.AfterDelay(3000, ex => item.Call("iprintlnbold", "^03"));
-                                item.AfterDelay(3000, ex => item.Call("playlocalsound", "ui_mp_nukebomb_timer"));
-                                item.AfterDelay(4000, ex => item.Call("iprintlnbold", "^02"));
-                                item.AfterDelay(4000, ex => item.Call("playlocalsound", "ui_mp_nukebomb_timer"));
-                                item.AfterDelay(5000, ex => item.Call("iprintlnbold", "^01"));
-                                item.AfterDelay(5000, ex => item.Call("playlocalsound", "ui_mp_nukebomb_timer"));
-                            }
-                        }
-                        player.AfterDelay(6000, ex =>
+                    break;
+                case 20:
+                    PrintGambleInfo(player, "You lose all Perk-a-Cola.", GambleType.Terrible);
+                    player.RemoveAllPerkCola();
+                    break;
+                case 21:
+                    PrintGambleInfo(player, "Other humans die or you die after 5 second.", GambleType.Terrible);
+                    foreach (var item in Utility.Players)
+                    {
+                        if (item.GetTeam() == "allies" && item.IsAlive)
                         {
-                            switch (Utility.Rng.Next(3))
+                            if (player != item)
                             {
-                                case 0:
-                                case 1:
-                                    foreach (var item in Utility.GetPlayers())
+                                item.GamblerText("You die or " + player.Name + " die after 5 second.", new Vector3(0, 0, 0), new Vector3(1, 1, 1), 1, 0);
+                            }
+
+                            item.AfterDelay(1000, ex => item.PrintlnBold("^05"));
+                            item.AfterDelay(1000, ex => item.PlayLocalSound("ui_mp_nukebomb_timer"));
+                            item.AfterDelay(2000, ex => item.PrintlnBold("^04"));
+                            item.AfterDelay(2000, ex => item.PlayLocalSound("ui_mp_nukebomb_timer"));
+                            item.AfterDelay(3000, ex => item.PrintlnBold("^03"));
+                            item.AfterDelay(3000, ex => item.PlayLocalSound("ui_mp_nukebomb_timer"));
+                            item.AfterDelay(4000, ex => item.PrintlnBold("^02"));
+                            item.AfterDelay(4000, ex => item.PlayLocalSound("ui_mp_nukebomb_timer"));
+                            item.AfterDelay(5000, ex => item.PrintlnBold("^01"));
+                            item.AfterDelay(5000, ex => item.PlayLocalSound("ui_mp_nukebomb_timer"));
+                        }
+                    }
+                    player.AfterDelay(6000, ex =>
+                    {
+                        switch (Utility.Random.Next(3))
+                        {
+                            case 0:
+                            case 1:
+                                foreach (var item in Utility.Players)
+                                {
+                                    if (player != item && item.GetTeam() == "allies")
+                                        item.GamblerText(player.Name + " die. You live!", new Vector3(1, 1, 1), new Vector3(0, 1, 0), 1, 0.85f);
+                                }
+                                if (player.GetCurrentGobbleGum().Type == GobbleGumType.NoGamble)
+                                {
+                                    player.ActiveGobbleGum();
+                                }
+                                else
+                                {
+                                    PrintGambleInfo(player, "You die!", GambleType.Bad);
+                                    player.Notify("self_exploed");
+                                }
+                                break;
+                            case 2:
+                                foreach (var item in Utility.Players)
+                                {
+                                    if (player != item && item.GetTeam() == "allies")
                                     {
-                                        if (player != item && item.GetTeam() == "allies")
-                                            item.GamblerText(player.Name + " die. You live!", new Vector3(1, 1, 1), new Vector3(0, 1, 0), 1, 0.85f);
-                                    }
-                                    player.PrintGambleInfo("You die!", GambleType.Bad);
-                                    player.SelfExploed();
-                                    break;
-                                case 2:
-                                    foreach (var item in Utility.GetPlayers())
-                                    {
-                                        if (player != item && item.GetTeam() == "allies")
+                                        if (item.GetCurrentGobbleGum().Type == GobbleGumType.NoGamble)
+                                        {
+                                            item.ActiveGobbleGum();
+                                        }
+                                        else
                                         {
                                             item.GamblerText("You die! And " + player.Name + " live!", new Vector3(0, 0, 0), new Vector3(1, 1, 1), 1, 0);
-                                            item.SelfExploed();
+                                            item.Notify("self_exploed");
                                         }
                                     }
-                                    player.PrintGambleInfo("You live! And you have all Perk-a-Cola!", GambleType.Excellent);
-                                    player.WinCash(1000);
-                                    while (player.GetField<int>("aiz_perks") < 11)
-                                    {
-                                        player.RandomPerkCola();
-                                    }
-                                    break;
-                            }
-                        });
-                        break;
-                }
-                player.SetField("isgambling", 0);
-            });
+                                }
+                                PrintGambleInfo(player, "You live! And you have all Perk-a-Cola!", GambleType.Excellent);
+                                player.WinCash(1000);
+
+                                break;
+                        }
+                    });
+                    break;
+            }
+            player.SetField("isgambling", 0);
         }
 
         private enum GambleType
@@ -649,48 +1078,232 @@ namespace INF3
             Terrible,
         }
 
-        private static void PrintGambleInfo(this Entity player, string text, GambleType type)
+        private void PrintGambleInfo(Entity player, string text, GambleType type)
         {
             switch (type)
             {
                 case GambleType.Good:
                     player.GamblerText(text, new Vector3(1, 1, 1), new Vector3(0, 1, 0), 1, 0.85f);
-                    Function.SetEntRef(-1);
-                    Function.Call("iprintln", player.Name + " gambled - ^2" + text);
+                    Utility.Println(player.Name + " gambled - ^2" + text);
                     break;
                 case GambleType.Bad:
                     player.GamblerText(text, new Vector3(1, 1, 1), new Vector3(1, 0, 0), 1, 0.85f);
-                    Function.SetEntRef(-1);
-                    Function.Call("iprintln", player.Name + " gambled - ^1" + text);
+                    Utility.Println(player.Name + " gambled - ^1" + text);
                     break;
                 case GambleType.Excellent:
                     player.GamblerText(text, new Vector3(1, 1, 1), new Vector3(1, 1, 0), 1, 0.85f);
-                    Function.SetEntRef(-1);
-                    Function.Call("iprintln", player.Name + " gambled - ^3" + text);
+                    Utility.Println(player.Name + " gambled - ^3" + text);
                     break;
                 case GambleType.Terrible:
                     player.GamblerText(text, new Vector3(0, 0, 0), new Vector3(1, 1, 1), 1, 0);
-                    Function.SetEntRef(-1);
-                    Function.Call("iprintln", player.Name + " gambled - ^0" + text);
+                    Utility.Println(player.Name + " gambled - ^0" + text);
                     break;
             }
         }
+    }
 
-        private static void GiveRandomAirstrike(this Entity player)
+    public class RandomAirstrike : BoxEntity
+    {
+        public RandomAirstrike(Vector3 origin, Vector3 angle) : base(BoxType.RandomAirstrike, origin, angle, 50)
         {
-            player.GamblerText("Comming Soon!", new Vector3(1, 1, 1), new Vector3(0.3f, 0.3f, 0.9f), 1, 0.85f);
-        }
+            Laptop = MapEdit.CreateLaptop(Origin);
+            Icon = "cardicon_award_jets";
+            Shader = Hud.CreateShader(Origin, Icon, "allies");
+            ObjectiveId = Hud.CreateObjective(Origin, Icon, "allies");
+            Cost = 10;
 
-        private static void RandomPerkCola(this Entity player)
-        {
-            if (player.GetField<int>("aiz_perks") == 11)
-                return;
-            var perk = PerkCola.RandomPerk();
-            while (PerkCola.HasPerkCola(player, perk))
+            OnTriggerString += player =>
             {
-                perk = PerkCola.RandomPerk();
+                if (player.GetTeam() == "allies")
+                {
+                    if (Utility.GetDvar<int>("scr_aiz_power") == 0 || Utility.GetDvar<int>("scr_aiz_power") == 2)
+                    {
+                        return "Requires Electricity";
+                    }
+                    return "Press ^3[{+activate}] ^7to buy random airstrike. [Cost: ^3" + Cost + " ^5bonus Points^7]";
+                }
+                return "";
+            };
+
+            OnTriggerUse += player =>
+            {
+                if (!player.IsAlive) return;
+                if (player.GetTeam() == "allies")
+                {
+                    if (player.GetPoint() >= Cost)
+                    {
+                        player.PayPoint(Cost);
+
+                    }
+                    else
+                    {
+                        player.PrintlnBold("^1Not enough ^5Bonus Points ^1for buy random airstrike. Need ^3" + Cost + " ^5Bonus Points");
+                    }
+                }
+            };
+        }
+    }
+
+    public class GobbleGumMachine : BoxEntity
+    {
+        public GobbleGumMachine(Vector3 origin, Vector3 angle) : base(BoxType.GobbleGumMachine, origin, angle, 50)
+        {
+            Laptop = MapEdit.CreateLaptop(Origin);
+            Icon = "dpad_killstreak_ac130";
+            Shader = Hud.CreateShader(Origin, Icon, "allies");
+            ObjectiveId = Hud.CreateObjective(Origin, Icon, "allies");
+            Cost = 5;
+
+            OnTriggerString += player =>
+            {
+                if (player.GetTeam() == "allies")
+                {
+                    return "Press ^3[{+activate}] ^7to buy a Gobble Gum. [Cost: ^3" + Cost + " ^5bonus Points^7]";
+                }
+                return "";
+            };
+
+            OnTriggerUse += player =>
+            {
+                if (!player.IsAlive) return;
+                if (player.GetTeam() == "allies")
+                {
+                    if (player.GetPoint() >= Cost)
+                    {
+                        player.PayPoint(Cost);
+
+                    }
+                    else
+                    {
+                        player.Println("^1Not enough ^5Bonus Points ^1for buy Gobble Gum. Need ^3" + Cost + " ^5Bonus Points");
+                    }
+                }
+            };
+        }
+    }
+
+    public class PerkColaMachine : BoxEntity
+    {
+        public PerkCola PerkCola { get; set; }
+
+        public PerkColaMachine(Vector3 origin, Vector3 angle, PerkColaType perk) : base(BoxType.PerkColaMachine, origin, angle, 50)
+        {
+            if (MapEdit.spawnedPerkColas.Contains(perk))
+            {
+                return;
             }
-            PerkCola.GivePerkCola(player, perk);
+            MapEdit.spawnedPerkColas.Add(perk);
+
+            PerkCola = new PerkCola(perk);
+            Icon = PerkCola.Icon;
+            ObjectiveId = Hud.CreateObjective(Origin, Icon, "allies");
+            Cost = PerkCola.Pay;
+
+            OnTriggerString += player =>
+            {
+                if (player.GetTeam() == "allies")
+                {
+                    if (Utility.GetDvar<int>("scr_aiz_power") == 0 || Utility.GetDvar<int>("scr_aiz_power") == 2)
+                    {
+                        return "Requires Electricity";
+                    }
+                    return "Press ^3[{+activate}] ^7to buy " + PerkCola.FullName + ". [Cost: ^2$^3" + Cost + "^7]";
+                }
+                return "";
+            };
+
+            OnTriggerUse += player =>
+            {
+                if (!player.IsAlive) return;
+                if (player.GetTeam() == "allies")
+                {
+                    if (Utility.GetDvar<int>("bonus_fire_sale") == 1 && player.GetCash() >= 10)
+                    {
+                        int max = player.GetField<int>("gobble_unquenchable") == 1 ? 6 : 5;
+
+                        if (player.PerkColasCount() >= max)
+                        {
+                            player.PrintlnBold("^1You already have " + max + " Perk-a-Cola.");
+                            return;
+                        }
+                        if (player.HasPerkCola(PerkCola))
+                        {
+                            player.PrintlnBold("^1You already have " + PerkCola.FullName + ".");
+                            return;
+                        }
+                        player.PayCash(10);
+                        player.GivePerkCola(PerkCola);
+                    }
+                    else if (player.GetCash() >= Cost)
+                    {
+                        if (player.PerkColasCount() >= 5)
+                        {
+                            player.PrintlnBold("^1You already have 5 Perk-a-Cola.");
+                            return;
+                        }
+                        if (player.HasPerkCola(PerkCola))
+                        {
+                            player.PrintlnBold("^1You already have " + PerkCola.FullName + ".");
+                            return;
+                        }
+                        player.PayCash(Cost);
+                        player.GivePerkCola(PerkCola);
+                    }
+                    else
+                    {
+                        player.Println("^1Not enough cash for " + PerkCola.FullName + ". Need ^2$^3" + Cost);
+                    }
+                }
+            };
+        }
+    }
+
+    public class RandomPerkCola : BoxEntity
+    {
+        public RandomPerkCola(Vector3 origin, Vector3 angle) : base(BoxType.RandomPerkCola, origin, angle, 50)
+        {
+            Icon = "cardicon_tf141";
+            Shader = Hud.CreateShader(Origin, Icon, "allies");
+            ObjectiveId = Hud.CreateObjective(Origin, Icon, "allies");
+            Cost = 10;
+
+            OnTriggerString += player =>
+            {
+                if (player.GetTeam() == "allies")
+                {
+                    if (Utility.GetDvar<int>("scr_aiz_power") == 0 || Utility.GetDvar<int>("scr_aiz_power") == 2)
+                    {
+                        return "Requires Electricity";
+                    }
+                    return "Press ^3[{+activate}] ^7to use Der Wunderfizz. [Cost: ^3" + Cost + " ^5bonus Points^7]";
+                }
+                return "";
+            };
+
+            OnTriggerUse += player =>
+            {
+                if (!player.IsAlive) return;
+                if (player.GetTeam() == "allies")
+                {
+                    if (player.GetPoint() >= Cost)
+                    {
+                        int max = player.GetField<int>("gobble_unquenchable") == 1 ? 6 : 5;
+
+                        if (player.PerkColasCount() >= max)
+                        {
+                            player.PrintlnBold("^1You already have " + max + " Perk-a-Cola.");
+                            return;
+                        }
+                        player.PayPoint(Cost);
+                        player.GiveRandomPerkCola();
+                    }
+                    else
+                    {
+                        player.Println("^1Not enough ^5Bonus Points ^1for Der Wunderfizz. Need ^3" + Cost + " ^5Bonus Points");
+                    }
+                }
+            };
+
         }
     }
 }

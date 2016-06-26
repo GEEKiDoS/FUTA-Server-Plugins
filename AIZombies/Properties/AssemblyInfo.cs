@@ -5,22 +5,22 @@ using System.Runtime.InteropServices;
 // 有关程序集的一般信息由以下
 // 控制。更改这些特性值可修改
 // 与程序集关联的信息。
-[assembly: AssemblyTitle("INF3")]
-[assembly: AssemblyDescription("The most powerful infected script for TeknoMW3")]
+[assembly: AssemblyTitle("AIZombies")]
+[assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("GACG")]
-[assembly: AssemblyProduct("INF3")]
-[assembly: AssemblyCopyright("Copyright © A2ON 2016")]
+[assembly: AssemblyCompany("")]
+[assembly: AssemblyProduct("AIZombies")]
+[assembly: AssemblyCopyright("Copyright ©  2016")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
 //将 ComVisible 设置为 false 将使此程序集中的类型
 //对 COM 组件不可见。  如果需要从 COM 访问此程序集中的类型，
 //请将此类型的 ComVisible 特性设置为 true。
-[assembly: ComVisible(true)]
+[assembly: ComVisible(false)]
 
 // 如果此项目向 COM 公开，则下列 GUID 用于类型库的 ID
-[assembly: Guid("6f88e68a-256b-4427-8689-f09f6066e089")]
+[assembly: Guid("e59d9e56-9bc5-46fe-9d93-eb853b6be2b7")]
 
 // 程序集的版本信息由下列四个值组成: 
 //

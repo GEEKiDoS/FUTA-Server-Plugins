@@ -18,24 +18,24 @@ namespace INF3
 
         public Sharpshooter()
         {
-            _firstWeapon = Weapon.GetRandomFirstWeapon();
-            _secondeWeapon = Weapon.GetRandomSecondWeapon();
-            _mulekickWeapon = Weapon.GetRandomFirstWeapon();
+            UpdateWeapon();
 
-            while (_mulekickWeapon.BaseName == _firstWeapon.BaseName)
+            if (Utility.GetDvar<string>("g_gametype") == "infect")
             {
-                _mulekickWeapon = Weapon.GetRandomFirstWeapon();
-            }
-
-            OnInterval(100, () =>
-            {
-                if (Call<int>("getteamscore", "axis") == 1)
+                OnInterval(100, () =>
                 {
-                    SharpShooter_Tick();
-                    return false;
-                }
-                return true;
-            });
+                    if (Call<int>("getteamscore", "axis") == 1)
+                    {
+                        SharpShooter_Tick();
+                        return false;
+                    }
+                    return true;
+                });
+            }
+            else
+            {
+                SharpShooter_Tick();
+            }
 
             PlayerConnected += player =>
             {
@@ -60,9 +60,9 @@ namespace INF3
             {
                 _cycleRemaining--;
 
-                if (_cycleRemaining == 0)
+                if (_cycleRemaining <= 0)
                 {
-                    _cycleRemaining = Utility.Rng.Next(30, 61);
+                    _cycleRemaining = Utility.Random.Next(45, 90);
 
                     UpdateWeapon();
                 }
@@ -71,6 +71,8 @@ namespace INF3
 
                 return true;
             });
+
+            AIZDebug.DebugLog(GetType(), "Sharpshooter is started.");
         }
 
         public void UpdateWeapon()
@@ -90,42 +92,42 @@ namespace INF3
                 {
                     player.TakeAllWeapons();
 
-                    player.GiveWeapon(_firstWeapon.Code);
-                    player.Call("givemaxammo", _firstWeapon.Code);
-                    if (player.GetField<int>("perk_mulekick") == 1)
+                    if (player.GetField<int>("perk_vultrue") == 1)
                     {
-                        player.GiveWeapon(_mulekickWeapon.Code);
-                        player.Call("givemaxammo", _mulekickWeapon.Code);
-                    }
-                    if (player.HasField("perk_vultrue") && player.GetField<int>("perk_vultrue") == 1)
-                    {
-                        player.GiveWeapon("uav_strike_marker_mp");
-                        player.Call("givemaxammo", "uav_strike_marker_mp");
+                        player.GiveMaxAmmoWeapon(_firstWeapon.Code);
+                        if (player.GetField<int>("perk_mulekick") == 1)
+                        {
+                            player.GiveMaxAmmoWeapon(_mulekickWeapon.Code);
+                        }
+                        player.GiveMaxAmmoWeapon(_secondeWeapon.Code);
+                        player.GiveMaxAmmoWeapon("frag_grenade_mp");
+                        player.GiveMaxAmmoWeapon("trophy_mp");
+                        player.AfterDelay(100, ent =>
+                        {
+                            ent.SwitchToWeaponImmediate(_firstWeapon.Code);
+                        });
                     }
                     else
                     {
-                        player.GiveWeapon(_secondeWeapon.Code);
-                        player.Call("givemaxammo", _secondeWeapon.Code);
-                    }
-                    player.AfterDelay(100, ent =>
-                    {
-                        player.GiveWeapon("frag_grenade_mp");
-                        player.Call("givemaxammo", "frag_grenade_mp");
-                        if (player.GetField<int>("perk_vultrue") == 1)
+                        player.GiveWeapon(_firstWeapon.Code);
+                        if (player.GetField<int>("perk_mulekick") == 1)
                         {
-                            player.GiveWeapon("trophy_mp");
-                            player.Call("givemaxammo", "trophy_mp");
-
+                            player.GiveWeapon(_mulekickWeapon.Code);
                         }
-                    });
-                    player.AfterDelay(100, ent =>
-                    {
-                        ent.SwitchToWeaponImmediate(_firstWeapon.Code);
-                    });
+                        player.GiveWeapon(_secondeWeapon.Code);
+                        player.GiveMaxAmmoWeapon("frag_grenade_mp");
+                        player.AfterDelay(100, ent =>
+                        {
+                            ent.SwitchToWeaponImmediate(_firstWeapon.Code);
+                        });
+                    }
 
                     player.GamblerText("Weapon Cycled", new Vector3(1, 1, 1), new Vector3(0.3f, 0.3f, 0.9f), 1, 0.85f);
                 }
             }
+
+            AIZDebug.DebugLog(GetType(), "Weapon Cycled");
+            AIZDebug.DebugLog(GetType(), "First Weapon: " + _firstWeapon+ " Second Weapon: " + _secondeWeapon+" Mule Kick Weapon: " + _mulekickWeapon);
         }
 
         public void OnPlayerSpawned(Entity player)
@@ -135,9 +137,7 @@ namespace INF3
                 player.TakeAllWeapons();
 
                 player.GiveWeapon(_firstWeapon.Code);
-                player.Call("giveMaxAmmo", _firstWeapon.Code);
                 player.GiveWeapon(_secondeWeapon.Code);
-                player.Call("giveMaxAmmo", _secondeWeapon.Code);
 
                 player.GiveWeapon("frag_grenade_mp");
                 player.GiveWeapon("trophy_mp");

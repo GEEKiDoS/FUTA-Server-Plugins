@@ -8,7 +8,12 @@ namespace INF3
 {
     public static class Sound
     {
-        public static string AxisAliasSound()
+        public static readonly string BombExploedSound = "exp_suitcase_bomb_main";
+        public static readonly string ExploedMineSound = "explo_mine";
+        public static readonly string CrashSound = "cobra_helicopter_crash";
+        public static readonly string AmmoCrateSound = "ammo_crate_use";
+
+        public static string AxisSoundAlias()
         {
             string prefix = string.Empty;
             Function.SetEntRef(-1);
@@ -89,7 +94,7 @@ namespace INF3
                 prefix = "RU_";
             return prefix;
         }
-        public static string AlliesAliasSound()
+        public static string AlliesSoundAlias()
         {
             string prefix = string.Empty;
             Function.SetEntRef(-1);
@@ -170,5 +175,9 @@ namespace INF3
                 prefix = "RU_";
             return prefix;
         }
+
+        public static void PlaySound(this Entity player, string sound) => player.Call("playsound", sound);
+        public static void PlayLocalSound(this Entity player, string sound) => player.Call("playlocalsound", sound);
+        public static void PlaySoundAsMaster(this Entity player, string sound) => player.Call("playsoundasmaster", sound);
     }
 }

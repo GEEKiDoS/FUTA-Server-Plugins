@@ -8,6 +8,54 @@ namespace INF3
 {
     public static class Hud
     {
+        public static int CurObjID;
+
+        private static readonly HudElem[] GambleTextHuds = new HudElem[18];
+        private static readonly List<HudElem>[] PerkColaHuds = new List<HudElem>[18];
+        private static readonly HudElem[] TextPopupHuds = new HudElem[18];
+        private static readonly HudElem[] TextPopup2Huds = new HudElem[18];
+        private static readonly HudElem[] ScorePopupHuds = new HudElem[18];
+
+        public static void InitGambleTextHud(this Entity player)
+        {
+            GambleTextHuds[player.EntRef] = HudElem.NewClientHudElem(player);
+        }
+
+        public static void InitPerkHud(this Entity player)
+        {
+            PerkColaHuds[player.EntRef] = new List<HudElem>();
+        }
+
+        public static void AddPerkHud(this Entity player, HudElem hud)
+        {
+            PerkColaHuds[player.EntRef].Add(hud);
+        }
+
+        public static List<HudElem> GetPerkColaHud(this Entity player)
+        {
+            return PerkColaHuds[player.EntRef];
+        }
+
+        public static HudElem GetGambleTextHud(this Entity player)
+        {
+            return GambleTextHuds[player.EntRef];
+        }
+
+        public static HudElem GetTextPopupHud(this Entity player)
+        {
+            return TextPopupHuds[player.EntRef];
+        }
+
+        public static HudElem GetTextPopup2Hud(this Entity player)
+        {
+            return TextPopup2Huds[player.EntRef];
+        }
+
+        public static HudElem GetScorePopupHud(this Entity player)
+        {
+            return ScorePopupHuds[player.EntRef];
+        }
+
         public static void CreateCashHud(this Entity player)
         {
             HudElem hud = HudElem.CreateFontString(player, "hudbig", 1f);
@@ -48,20 +96,12 @@ namespace INF3
 
         public static void GamblerText(this Entity player, string text, Vector3 color, Vector3 glowColor, float intensity, float glowIntensity)
         {
-            HudElem hud;
-            if (!player.HasField("gambletexthud"))
-            {
-                hud = HudElem.CreateFontString(player, "hudbig", 2);
-                player.SetField("gambletexthud", new Parameter(hud));
-            }
-            else
-            {
-                hud = player.GetField<HudElem>("gambletexthud");
-            }
+            HudElem hud = GambleTextHuds[player.EntRef];
+
             hud.Call("destroy");
 
             hud = HudElem.CreateFontString(player, "hudbig", 2);
-            var entref = hud.Entity.EntRef;
+            var ent = hud.Entity;
             hud.SetPoint("CENTERMIDDLE", "CENTERMIDDLE", 0, 0);
             hud.SetText(text);
             hud.Color = color;
@@ -73,11 +113,11 @@ namespace INF3
             hud.Call("FadeOverTime", 0.25f);
             hud.Alpha = intensity;
 
-            player.AfterDelay(250, ent => player.Call("playLocalSound", "mp_bonus_end"));
+            player.AfterDelay(250, e => player.Call("playLocalSound", "mp_bonus_end"));
 
-            player.AfterDelay(3000, ent =>
+            player.AfterDelay(3000, e =>
             {
-                if (hud.Entity.EntRef == entref)
+                if (hud.Entity == ent)
                 {
                     hud.ChangeFontScaleOverTime(0.25f, 2f);
                     hud.Call("FadeOverTime", 0.25f);
@@ -85,9 +125,9 @@ namespace INF3
                 }
             });
 
-            player.AfterDelay(4000, ent =>
+            player.AfterDelay(4000, e =>
             {
-                if (hud.Entity.EntRef == entref)
+                if (hud.Entity == ent)
                 {
                     hud.ChangeFontScaleOverTime(0.25f, 2f);
                     hud.Call("FadeOverTime", 0.25f);
@@ -143,7 +183,7 @@ namespace INF3
 
         public static HudElem PerkHudNoEffect(this Entity player, string shader)
         {
-            int perksAmount = player.GetField<int>("aiz_perks") - 1;
+            int perksAmount = player.PerkColasCount() - 1;
             int MultiplyTimes = 28 * perksAmount;
 
             var hudshader = HudElem.NewClientHudElem(player);
@@ -160,11 +200,10 @@ namespace INF3
             return hudshader;
         }
 
-        [Obsolete]
         public static HudElem PerkHud(this Entity player, string shader, Vector3 color, string text)
         {
             player.Call("setblurforplayer", 6, 0.5f);
-            int perksAmount = player.GetField<int>("aiz_perks") - 1;
+            int perksAmount = player.PerkColasCount() - 1;
             int MultiplyTimes = 28 * perksAmount;
 
             var hudtext = HudElem.NewClientHudElem(player);
@@ -220,21 +259,6 @@ namespace INF3
             return hudshader;
         }
 
-        public static HudElem CreateRandomPerkHud(this Entity player)
-        {
-            var hudshader = HudElem.NewClientHudElem(player);
-            hudshader.AlignX = "center";
-            hudshader.VertAlign = "middle";
-            hudshader.AlignY = "middle";
-            hudshader.HorzAlign = "center";
-            hudshader.X = 0;
-            hudshader.Y = 0;
-            hudshader.Foreground = true;
-            hudshader.Alpha = 1;
-
-            return hudshader;
-        }
-
         public static void Credits(this Entity player)
         {
             HudElem credits = HudElem.CreateFontString(player, "hudbig", 1.0f);
@@ -246,7 +270,7 @@ namespace INF3
 
             HudElem credits2 = HudElem.CreateFontString(player, "hudbig", 0.6f);
             credits2.SetPoint("CENTER", "BOTTOM", 0, -90);
-            credits2.Call("settext", "Vesion 0.3.2 Beta. Code in: https://github.com/A2ON");
+            credits2.Call("settext", "Vesion 1.0 Beta. Code in: https://github.com/A2ON");
             credits2.Alpha = 0f;
             credits2.SetField("glowcolor", new Vector3(1f, 0.5f, 1f));
             credits2.GlowAlpha = 1f;
@@ -269,17 +293,13 @@ namespace INF3
         [Obsolete]
         public static void TextPopup(this Entity player, string text)
         {
-            HudElem hud;
+            HudElem hud = player.GetTextPopupHud();
 
-            if (!player.HasField("textpopup"))
+            if (hud == null)
             {
-                player.SetField("textpopup", new Parameter(HudElem.NewClientHudElem(player)));
+                hud = HudElem.NewClientHudElem(player);
             }
-            hud = player.GetField<HudElem>("textpopup");
-            if (hud != null)
-            {
-                hud.Call("destroy");
-            }
+            hud.Call("destroy");
 
             hud = HudElem.CreateFontString(player, "hudbig", 0.8f);
             hud.SetPoint("BOTTOMCENTER", "BOTTOMCENTER", 0, -65);
@@ -298,17 +318,13 @@ namespace INF3
         [Obsolete]
         public static void TextPopup2(this Entity player, string text)
         {
-            HudElem hud;
+            HudElem hud = player.GetTextPopup2Hud();
 
-            if (!player.HasField("textpopup2"))
+            if (hud == null)
             {
-                player.SetField("textpopup2", new Parameter(HudElem.NewClientHudElem(player)));
+                hud = HudElem.NewClientHudElem(player);
             }
-            hud = player.GetField<HudElem>("textpopup2");
-            if (hud != null)
-            {
-                hud.Call("destroy");
-            }
+            hud.Call("destroy");
 
             hud = HudElem.CreateFontString(player, "hudbig", 0.8f);
             hud.SetPoint("BOTTOMCENTER", "BOTTOMCENTER", 0, -105);
@@ -324,7 +340,6 @@ namespace INF3
             });
         }
 
-        [Obsolete]
         private static void CreateRankHud(this Entity player)
         {
             var hud = HudElem.CreateFontString(player, "hudbig", 1);
@@ -332,7 +347,7 @@ namespace INF3
             hud.Alpha = 0;
             hud.Color = new Vector3(0.5f, 0.5f, 0.5f);
 
-            player.SetField("scorepopup", new Parameter(hud));
+            ScorePopupHuds[player.EntRef] = hud;
         }
 
         [Obsolete]
@@ -342,20 +357,17 @@ namespace INF3
             {
                 return;
             }
-            if (player.HasField("scorepopup"))
+            if (player.GetScorePopupHud() != null)
             {
-                var temphud = player.GetField<HudElem>("scorepopup");
-                if (temphud != null)
-                {
-                    temphud.Call("destroy");
-                }
+                var temphud = player.GetScorePopupHud();
+                temphud.Call("destroy");
             }
 
             player.CreateRankHud();
 
             player.SetField("xpUpdateTotal", player.GetField<int>("xpUpdateTotal") + amount);
 
-            var hud = player.GetField<HudElem>("scorepopup");
+            var hud = player.GetScorePopupHud();
 
             if (player.GetField<int>("xpUpdateTotal") < 0)
             {
@@ -442,9 +454,53 @@ namespace INF3
             return icon;
         }
 
-        public static void GobbleGumHud(this Entity player,string head,string text)
+        public static void GobbleGumHud(this Entity player, string head, string text)
         {
 
+        }
+
+        public static void CreateFlagShader(Vector3 origin)
+        {
+            HudElem elem = HudElem.NewHudElem();
+            elem.SetShader("waypoint_flag_friendly", 15, 15);
+            elem.Alpha = 0.6f;
+            elem.X = origin.X;
+            elem.Y = origin.Y;
+            elem.Z = origin.Z + 100f;
+            elem.Call("SetWayPoint", 1, 1);
+        }
+
+        public static HudElem CreateShader(Vector3 origin, string shader, string team = "")
+        {
+            HudElem elem;
+            if (team != "")
+            {
+                elem = HudElem.NewTeamHudElem(team);
+            }
+            else
+            {
+                elem = HudElem.NewHudElem();
+            }
+            elem.SetShader(shader, 15, 15);
+            elem.Alpha = 0.6f;
+            elem.X = origin.X;
+            elem.Y = origin.Y;
+            elem.Z = origin.Z + 50f;
+            elem.Call("SetWayPoint", 1, 1);
+
+            return elem;
+        }
+
+        public static int CreateObjective(Vector3 origin, string shader, string team = "none")
+        {
+            int num = 31 - CurObjID++;
+            Function.SetEntRef(-1);
+            Function.Call("objective_state", num, "active");
+            Function.Call("objective_position", num, origin);
+            Function.Call("objective_icon", num, shader);
+            Function.Call("objective_team", num, team);
+
+            return num;
         }
     }
 }

@@ -6,130 +6,656 @@ using InfinityScript;
 
 namespace INF3
 {
-    public class GobbleGum : BaseScript
+    /// <summary>
+    /// 指定泡泡糖的作用
+    /// </summary>
+    public enum GobbleGumType
     {
-        private struct GobbleInfo
-        {
-            public string Name;
-            public string Info;
+        /// <summary>
+        /// 无任何作用，此项用于表示玩家并没有任何泡泡糖
+        /// </summary>
+        None,
 
-            public GobbleInfo(string name, string info)
+        // 最常见
+
+        /// <summary>
+        /// 自动激活，瞄准时移动更快
+        /// </summary>
+        AlwaysDoneSwiftly,
+        /// <summary>
+        /// 当自己赌博抽到You live or die或You infected，自己或其他人抽到Other humans die时自动激活，可以保护自己不被赌博机击杀，持续1次
+        /// </summary>
+        NoGamble,
+        /// <summary>
+        /// 自动激活，缩短赌博机倒计时时间
+        /// </summary>
+        Coagulant,
+        /// <summary>
+        /// 激活后，10秒内无法被僵尸看到
+        /// </summary>
+        InPlainSight,
+        /// <summary>
+        /// 自动激活，1分钟内，射击消耗备弹而不是弹匣
+        /// </summary>
+        StockOption,
+
+        // 较常见
+
+        /// <summary>
+        /// 被Boomer效果影响后自动激活，消除Boomer的影响，持续1次
+        /// </summary>
+        Wiper,
+        /// <summary>
+        /// 自动激活，1分钟内，近战一击必杀
+        /// </summary>
+        SwordFlay,
+        /// <summary>
+        /// 激活后，10秒内免疫所有僵尸的伤害，包括近战和爆炸伤害
+        /// </summary>
+        DangerClosest,
+        /// <summary>
+        /// 被Spider效果影响时自动激活，消除Spider的伤害，持续1次
+        /// </summary>
+        Antidote,
+        /// <summary>
+        /// 激活后，重新运行一次赌博机，只能在进行赌博后的10秒内激活
+        /// </summary>
+        LuckyCrit,
+        /// <summary>
+        /// 自动激活，1分钟内所有僵尸都会有红框标记
+        /// </summary>
+        Recon,
+        /// <summary>
+        /// 当有人从赌博机中抽到Surprise和Robbed all money时激活，保护自己的现金和Bonus Points不会损失，持续1次
+        /// </summary>
+        Strongbox,
+
+        // 稀有
+
+        /// <summary>
+        /// 拥有Quick Revive后激活，被僵尸干掉复活不会丢失Perk-a-Cola
+        /// </summary>
+        Aftertaste,
+        /// <summary>
+        /// 激活后，1分钟内所有僵尸重生只能Roll到减弱而不能Roll到增强
+        /// </summary>
+        BurnedOut,
+        /// <summary>
+        /// 激活后立刻获得一个Nuke Power-Up
+        /// </summary>
+        DeadOfNuclearWinter,
+        /// <summary>
+        /// 激活后立刻获得一个随机Power-Up
+        /// </summary>
+        IAmFeelingLucky,
+        /// <summary>
+        /// 激活后立刻获得一个Fire Sale Power-Up
+        /// </summary>
+        ImmolationLiquidation,
+        /// <summary>
+        /// 激活后立刻获得一个Carpenter Power-Up
+        /// </summary>
+        LicensedContractor,
+        /// <summary>
+        /// 激活后，随机将一个僵尸重生为人类
+        /// </summary>
+        PhoenixUp,
+        /// <summary>
+        /// 被僵尸近战攻击自动激活，被僵尸近战攻击立即将周围大范围内僵尸冻住并免疫本次攻击造成的伤害，持续1次
+        /// </summary>
+        PopShocks,
+        /// <summary>
+        /// 激活后，立刻更新所有人的武器
+        /// </summary>
+        RespinCycle,
+        /// <summary>
+        /// 当Perk-a-Cola达到5个时候自动激活，可以额外购买一个Perk-a-Cola
+        /// </summary>
+        Unquenchable,
+        /// <summary>
+        /// 激活后立刻获得一个Double Points Power-Up
+        /// </summary>
+        WhosKeepingScore,
+        /// <summary>
+        /// 激活后立刻获得一个Max Ammo Power-Up
+        /// </summary>
+        CacheBack,
+        /// <summary>
+        /// 激活后立刻获得一个Insta-Kill Power-Up
+        /// </summary>
+        KillJoy,
+        /// <summary>
+        /// 激活后立刻减慢所有存活僵尸的移动速度
+        /// </summary>
+        WalkingDeath,
+        /// <summary>
+        /// 自动激活，延长Power-Up的保留时间
+        /// </summary>
+        TemporalGift,
+
+        // 超级稀有
+
+        /// <summary>
+        /// 激活后，15秒内所有被命中的僵尸都会被冻住，如果没有被击杀则会在10秒后自爆
+        /// </summary>
+        KillingTime,
+        /// <summary>
+        /// 当幸存人类数少于3个时激活，立即给与所有幸存人类所有Perk-a-Cola
+        /// </summary>
+        Perkaholic,
+        /// <summary>
+        /// 激活后，所有对僵尸的伤害都会附加损伤僵尸的头，持续1分钟
+        /// </summary>
+        HeadDrama,
+    }
+
+    public class GobbleGum
+    {
+        public delegate void GobbleFunc(Entity player);
+
+        public GobbleGumType Type { get; set; }
+        public string Name
+        {
+            get
             {
-                Name = name;
-                Info = info;
+                switch (Type)
+                {
+                    case GobbleGumType.AlwaysDoneSwiftly:
+                        return "Always Done Swiftly";
+                    case GobbleGumType.NoGamble:
+                        return "No Gamble";
+                    case GobbleGumType.Coagulant:
+                        return "Coagulant";
+                    case GobbleGumType.InPlainSight:
+                        return "In Plain Sight";
+                    case GobbleGumType.StockOption:
+                        return "Stock Option";
+                    case GobbleGumType.Wiper:
+                        return "Wiper";
+                    case GobbleGumType.SwordFlay:
+                        return "Sword Flay";
+                    case GobbleGumType.DangerClosest:
+                        return "Danger Closest";
+                    case GobbleGumType.Antidote:
+                        return "Antidote";
+                    case GobbleGumType.LuckyCrit:
+                        return "Lucky Crit";
+                    case GobbleGumType.Recon:
+                        return "Recon";
+                    case GobbleGumType.Strongbox:
+                        return "Strongbox";
+                    case GobbleGumType.Aftertaste:
+                        return "Aftertaste";
+                    case GobbleGumType.BurnedOut:
+                        return "Burned Out";
+                    case GobbleGumType.DeadOfNuclearWinter:
+                        return "Dead Of Nuclear Winter";
+                    case GobbleGumType.IAmFeelingLucky:
+                        return "I'm Feeling Lucky";
+                    case GobbleGumType.ImmolationLiquidation:
+                        return "Immolation Liquidation";
+                    case GobbleGumType.LicensedContractor:
+                        return "Licensed Contractor";
+                    case GobbleGumType.PhoenixUp:
+                        return "Phoenix Up";
+                    case GobbleGumType.PopShocks:
+                        return "Pop Shocks";
+                    case GobbleGumType.RespinCycle:
+                        return "Respin Cycle";
+                    case GobbleGumType.Unquenchable:
+                        return "Unquenchable";
+                    case GobbleGumType.WhosKeepingScore:
+                        return "Who's Keeping Score";
+                    case GobbleGumType.CacheBack:
+                        return "Cache Back";
+                    case GobbleGumType.KillJoy:
+                        return "Kill Joy";
+                    case GobbleGumType.WalkingDeath:
+                        return "Walking Death";
+                    case GobbleGumType.TemporalGift:
+                        return "Temporal Gift";
+                    case GobbleGumType.KillingTime:
+                        return "Killing Time";
+                    case GobbleGumType.Perkaholic:
+                        return "Perkaholic";
+                    case GobbleGumType.HeadDrama:
+                        return "Head Drama";
+                    default:
+                        return "";
+                }
+            }
+        }
+        public string Info
+        {
+            get
+            {
+                switch (Type)
+                {
+                    case GobbleGumType.AlwaysDoneSwiftly:
+                        return "Walk faster when aiming. Activates immediately.";
+                    case GobbleGumType.NoGamble:
+                        return "Protect you not killed by Gambler. For once.";
+                    case GobbleGumType.Coagulant:
+                        return "Shorted gamble time. Activates immediately.";
+                    case GobbleGumType.InPlainSight:
+                        return "The player is ignored by zombies for 10 seconds. Activates manual.";
+                    case GobbleGumType.StockOption:
+                        return "Ammo is taken from the player's stockpile instead of their weapon's magazine. For 1 min. Activates immediately.";
+                    case GobbleGumType.Wiper:
+                        return "Eliminate the effects of Boomer. For once.";
+                    case GobbleGumType.SwordFlay:
+                        return "Melee attacks and any melee weapon will one hit kill on zombies. Activates immediately.";
+                    case GobbleGumType.DangerClosest:
+                        return "Zero any damage from zombies for 10 second. Activates manual.";
+                    case GobbleGumType.Antidote:
+                        return "Eliminate the damage of Spider. For once.";
+                    case GobbleGumType.LuckyCrit:
+                        return "Restart the Gambler. Only can active for gambled 10 second. Activates manual.";
+                    case GobbleGumType.Recon:
+                        return "Mark all zombies for 1 min. Activates immediately.";
+                    case GobbleGumType.Strongbox:
+                        return "Protect you cash and Bonus Point not take by otherone. For once.";
+                    case GobbleGumType.Aftertaste:
+                        return "Not lose all Perk-a-Cola if you killed by zombie. Activates immediately if have Quick Revive.";
+                    case GobbleGumType.BurnedOut:
+                        return "Limit zombies only can roll bad item for 1 min. Activates immediately.";
+                    case GobbleGumType.DeadOfNuclearWinter:
+                        return "Spawns a Nuke Power-Up. Activates manual.";
+                    case GobbleGumType.IAmFeelingLucky:
+                        return "Spawns a random Power-Up. Activates manual.";
+                    case GobbleGumType.ImmolationLiquidation:
+                        return "Spawns a Fire Sale Power-Up. Activates manual.";
+                    case GobbleGumType.LicensedContractor:
+                        return "Spawns a Carpenter Power-Up. Activates manual.";
+                    case GobbleGumType.PhoenixUp:
+                        return "Change a random zombie to human. Activates manual.";
+                    case GobbleGumType.PopShocks:
+                        return "Freeze nearby zombies if zombie hit you. And you immunity this attack damage. For once.";
+                    case GobbleGumType.RespinCycle:
+                        return "Cycle all humans weapon. Activates manual.";
+                    case GobbleGumType.Unquenchable:
+                        return "Can buy an extra Perk-a-Cola.  Activates immediately.";
+                    case GobbleGumType.WhosKeepingScore:
+                        return "Spawns a Double Points Power-Up. Activates manual.";
+                    case GobbleGumType.CacheBack:
+                        return "Spawns a Max Ammo Power-Up. Activates manual.";
+                    case GobbleGumType.KillJoy:
+                        return "Spawns a Insta-Kill Power-Up. Activates manual.";
+                    case GobbleGumType.WalkingDeath:
+                        return "Slow down all zombies move speed. Activates immediately.";
+                    case GobbleGumType.TemporalGift:
+                        return "Power-Ups last longer. Activates immediately.";
+                    case GobbleGumType.KillingTime:
+                        return "For 15 second. Freeze zombies if they hit by you. If they not killed for 10 second. Then they will exploed. Activates immediately.";
+                    case GobbleGumType.Perkaholic:
+                        return "Give all survivor all Perk-a-Colas. Activates if only have 2 survivor.";
+                    case GobbleGumType.HeadDrama:
+                        return "Any bullet which hits a zombie will damage its head for 1 min. Activates immediately.";
+                    default:
+                        return "";
+                }
             }
         }
 
-        private static readonly Dictionary<GobbleType, GobbleInfo> gobblegums = new Dictionary<GobbleType, GobbleInfo>();
-        private static readonly List<KeyValuePair<int, GobbleType>> rolls = new List<KeyValuePair<int, GobbleType>>
+        public int Weight
         {
-            new KeyValuePair<int, GobbleType>(10,GobbleType.AlwaysDoneSwiftly),
-            new KeyValuePair<int, GobbleType>(10,GobbleType.NoGamble),
-            new KeyValuePair<int, GobbleType>(10,GobbleType.Coagulant),
-            new KeyValuePair<int, GobbleType>(10,GobbleType.InPlainSight),
-            new KeyValuePair<int, GobbleType>(10,GobbleType.StockOption),
-            new KeyValuePair<int, GobbleType>(7,GobbleType.Wiper),
-            new KeyValuePair<int, GobbleType>(7,GobbleType.SwordFlay),
-            new KeyValuePair<int, GobbleType>(7,GobbleType.DangerClosest),
-            new KeyValuePair<int, GobbleType>(7,GobbleType.Antidote),
-            new KeyValuePair<int, GobbleType>(7,GobbleType.LuckyCrit),
-            new KeyValuePair<int, GobbleType>(7,GobbleType.Recon),
-            new KeyValuePair<int, GobbleType>(7,GobbleType.Strongbox),
-            new KeyValuePair<int, GobbleType>(4,GobbleType.Aftertaste),
-            new KeyValuePair<int, GobbleType>(4,GobbleType.BurnedOut),
-            new KeyValuePair<int, GobbleType>(4,GobbleType.DeadOfNuclearWinter),
-            new KeyValuePair<int, GobbleType>(4,GobbleType.IAmFeelingLucky),
-            new KeyValuePair<int, GobbleType>(4,GobbleType.ImmolationLiquidation),
-            new KeyValuePair<int, GobbleType>(4,GobbleType.LicensedContractor),
-            new KeyValuePair<int, GobbleType>(4,GobbleType.PhoenixUp),
-            new KeyValuePair<int, GobbleType>(4,GobbleType.PopShocks),
-            new KeyValuePair<int, GobbleType>(4,GobbleType.RespinCycle),
-            new KeyValuePair<int, GobbleType>(4,GobbleType.Unquenchable),
-            new KeyValuePair<int, GobbleType>(4,GobbleType.WhosKeepingScore),
-            new KeyValuePair<int, GobbleType>(4,GobbleType.CacheBack),
-            new KeyValuePair<int, GobbleType>(4,GobbleType.KillJoy),
-            new KeyValuePair<int, GobbleType>(4,GobbleType.WalkingDeath),
-            new KeyValuePair<int, GobbleType>(4,GobbleType.TemporalGift),
-            new KeyValuePair<int, GobbleType>(1,GobbleType.KillingTime),
-            new KeyValuePair<int, GobbleType>(1,GobbleType.Perkaholic),
-            new KeyValuePair<int, GobbleType>(1,GobbleType.HeadDrama),
-        };
+            get
+            {
+                switch (Type)
+                {
+                    case GobbleGumType.AlwaysDoneSwiftly:
+                    case GobbleGumType.NoGamble:
+                    case GobbleGumType.Coagulant:
+                    case GobbleGumType.InPlainSight:
+                    case GobbleGumType.StockOption:
+                        return 10;
+                    case GobbleGumType.Wiper:
+                    case GobbleGumType.SwordFlay:
+                    case GobbleGumType.DangerClosest:
+                    case GobbleGumType.Antidote:
+                    case GobbleGumType.LuckyCrit:
+                    case GobbleGumType.Recon:
+                    case GobbleGumType.Strongbox:
+                        return 7;
+                    case GobbleGumType.Aftertaste:
+                    case GobbleGumType.BurnedOut:
+                    case GobbleGumType.DeadOfNuclearWinter:
+                    case GobbleGumType.IAmFeelingLucky:
+                    case GobbleGumType.ImmolationLiquidation:
+                    case GobbleGumType.LicensedContractor:
+                    case GobbleGumType.PhoenixUp:
+                    case GobbleGumType.PopShocks:
+                    case GobbleGumType.RespinCycle:
+                    case GobbleGumType.Unquenchable:
+                    case GobbleGumType.WhosKeepingScore:
+                    case GobbleGumType.CacheBack:
+                    case GobbleGumType.KillJoy:
+                    case GobbleGumType.WalkingDeath:
+                    case GobbleGumType.TemporalGift:
+                        return 4;
+                    case GobbleGumType.KillingTime:
+                    case GobbleGumType.Perkaholic:
+                    case GobbleGumType.HeadDrama:
+                        return 1;
+                    default:
+                        return 0;
+                }
+            }
+        }
+        public bool IsManual
+        {
+            get
+            {
+                switch (Type)
+                {
+                    case GobbleGumType.AlwaysDoneSwiftly:
+                    case GobbleGumType.NoGamble:
+                    case GobbleGumType.Coagulant:
+                    case GobbleGumType.StockOption:
+                    case GobbleGumType.Wiper:
+                    case GobbleGumType.SwordFlay:
+                    case GobbleGumType.Antidote:
+                    case GobbleGumType.Recon:
+                    case GobbleGumType.Strongbox:
+                    case GobbleGumType.Aftertaste:
+                    case GobbleGumType.PopShocks:
+                    case GobbleGumType.Unquenchable:
+                    case GobbleGumType.TemporalGift:
+                    case GobbleGumType.Perkaholic:
+                        return false;
+                    case GobbleGumType.InPlainSight:
+                    case GobbleGumType.DangerClosest:
+                    case GobbleGumType.LuckyCrit:
+                    case GobbleGumType.BurnedOut:
+                    case GobbleGumType.DeadOfNuclearWinter:
+                    case GobbleGumType.IAmFeelingLucky:
+                    case GobbleGumType.ImmolationLiquidation:
+                    case GobbleGumType.LicensedContractor:
+                    case GobbleGumType.PhoenixUp:
+                    case GobbleGumType.RespinCycle:
+                    case GobbleGumType.WhosKeepingScore:
+                    case GobbleGumType.CacheBack:
+                    case GobbleGumType.KillJoy:
+                    case GobbleGumType.WalkingDeath:
+                    case GobbleGumType.KillingTime:
+                    case GobbleGumType.HeadDrama:
+                        return true;
+                    default:
+                        return false;
+                }
+            }
+        }
+        public GobbleFunc Activation { get; }
 
-        public enum GobbleType
+        public GobbleGum(GobbleGumType type)
         {
-            None,
-            // 最常见
-            AlwaysDoneSwiftly, //自动激活，瞄准时移动更快
-            NoGamble, //当自己赌博抽到You live or die或You infected，自己或其他人抽到Other humans die时自动激活，可以保护自己不被赌博机击杀，持续1次
-            Coagulant, //自动激活，缩短赌博机倒计时时间
-            InPlainSight, //激活后，10秒内无法被僵尸看到
-            StockOption, //自动激活，1分钟内，射击消耗备弹而不是弹匣
-            // 较常见
-            Wiper, //被Boomer效果影响后自动激活，消除Boomer的影响，持续1次
-            SwordFlay, //自动激活，1分钟内，近战一击必杀
-            DangerClosest, //激活后，10秒内免疫所有僵尸的伤害，包括近战和爆炸伤害
-            Antidote, //被Spider效果影响时自动激活，消除Spider的伤害，持续1次
-            LuckyCrit, //激活后，重新运行一次赌博机，只能在进行赌博后的10秒内激活
-            Recon, //自动激活，1分钟内所有僵尸都会有红框标记
-            Strongbox, //当有人从赌博机中抽到Surprise和Robbed all money时激活，保护自己的现金和Bonus Points不会损失，持续1次
-            // 稀有
-            Aftertaste, //拥有Quick Revive后激活，被僵尸干掉复活不会丢失Perk-a-Cola
-            BurnedOut, //激活后，1分钟内所有僵尸重生只能Roll到减弱而不能Roll到增强
-            DeadOfNuclearWinter, //激活后立刻获得一个Nuke Power-Up
-            IAmFeelingLucky, //激活后立刻获得一个随机Power-Up
-            ImmolationLiquidation, //激活后立刻获得一个Fire Sale Power-Up
-            LicensedContractor, //激活后立刻获得一个Carpenter Power-Up
-            PhoenixUp, //激活后，随机将一个僵尸重生为人类
-            PopShocks, //被僵尸近战攻击自动激活，被僵尸近战攻击立即将周围大范围内僵尸冻住并免疫本次攻击造成的伤害，持续1次
-            RespinCycle, //激活后，立刻更新所有人的武器
-            Unquenchable, //当Perk-a-Cola达到5个时候自动激活，可以额外购买一个Perk-a-Cola
-            WhosKeepingScore, //激活后立刻获得一个Double Points Power-Up
-            CacheBack, //激活后立刻获得一个Max Ammo Power-Up
-            KillJoy, //激活后立刻获得一个Insta-Kill Power-Up
-            WalkingDeath, //激活后立刻减慢所有存活僵尸的移动速度
-            TemporalGift, //激活后，延长Power-Up的保留时间
-            // 超级稀有
-            KillingTime, //激活后，15秒内所有被命中的僵尸都会被冻住，如果没有被击杀则会在10秒后自爆
-            Perkaholic, //当幸存人类数少于3个时激活，立即给与幸存人类所有Perk-a-Cola
-            HeadDrama, //激活后，所有对僵尸的伤害都会附加损伤僵尸的头，持续1分钟
+            Type = type;
+            Activation = InitActiveAction();
         }
 
-        public GobbleGum()
+        private GobbleFunc InitActiveAction()
         {
-            gobblegums.Add(GobbleType.AlwaysDoneSwiftly, new GobbleInfo("Always Done Swiftly", "Walk faster when aiming. Activates immediately."));
-            gobblegums.Add(GobbleType.NoGamble, new GobbleInfo("No Gamble", "Protect you not killed by Gambler. For once."));
-            gobblegums.Add(GobbleType.Coagulant, new GobbleInfo("Coagulant", "Shorted gamble time. Activates immediately."));
-            gobblegums.Add(GobbleType.InPlainSight, new GobbleInfo("In Plain Sight", "The player is ignored by zombies for 10 seconds. Activates manual."));
-            gobblegums.Add(GobbleType.StockOption, new GobbleInfo("Stock Option", "Ammo is taken from the player's stockpile instead of their weapon's magazine. For 1 min. Activates immediately."));
-            gobblegums.Add(GobbleType.Wiper, new GobbleInfo("Wiper", "Eliminate the effects of Boomer. For once."));
-            gobblegums.Add(GobbleType.SwordFlay, new GobbleInfo("Sword Flay", "Melee attacks and any melee weapon will one hit kill on zombies. Activates immediately."));
-            gobblegums.Add(GobbleType.DangerClosest, new GobbleInfo("Danger Closest", "Zero any damage from zombies for 10 second. Activates manual."));
-            gobblegums.Add(GobbleType.Antidote, new GobbleInfo("Danger Closest", "Eliminate the damage of Spider. For once."));
-            gobblegums.Add(GobbleType.LuckyCrit, new GobbleInfo("Lucky Crit", "Restart the Gambler. Only can active for gambled 10 second. Activates manual."));
-            gobblegums.Add(GobbleType.Recon, new GobbleInfo("Recon", "Mark all zombies for 1 min. Activates immediately."));
-            gobblegums.Add(GobbleType.Strongbox, new GobbleInfo("Strongbox", "Protect you cash and Bouns Point not take by otherone. For once."));
-            gobblegums.Add(GobbleType.Aftertaste, new GobbleInfo("Aftertaste", "Not lose all Perk-a-Cola if you killed by zombie. Activates immediately if have Quick Revive."));
-            gobblegums.Add(GobbleType.BurnedOut, new GobbleInfo("Burned Out", "Limit zombies only can roll bad item for 1 min. Activates immediately."));
-            gobblegums.Add(GobbleType.DeadOfNuclearWinter, new GobbleInfo("Dead of Nuclear Winter", "Spawns a Nuke Power-Up. Activates manual."));
-            gobblegums.Add(GobbleType.IAmFeelingLucky, new GobbleInfo("I am Feeling Lucky", "Spawns a random Power-Up. Activates manual."));
-            gobblegums.Add(GobbleType.ImmolationLiquidation, new GobbleInfo("Immolation Liquidation", "Spawns a Fire Sale Power-Up. Activates manual."));
-            gobblegums.Add(GobbleType.LicensedContractor, new GobbleInfo("Licensed Contractor", "Spawns a Carpenter Power-Up. Activates manual."));
-            gobblegums.Add(GobbleType.PhoenixUp, new GobbleInfo("Phoenix Up", "Change a random zombie to human. Activates manual."));
-            gobblegums.Add(GobbleType.PopShocks, new GobbleInfo("Pop Shocks", "Freeze nearby zombies if zombie hit you. And you immunity this attack damage. For once."));
-            gobblegums.Add(GobbleType.RespinCycle, new GobbleInfo("Respin Cycle", "Cycle all humans weapon. Activates manual."));
-            gobblegums.Add(GobbleType.Unquenchable, new GobbleInfo("Unquenchable", "Can buy an extra Perk-a-Cola.  Activates immediately."));
-            gobblegums.Add(GobbleType.WhosKeepingScore, new GobbleInfo("Who's Keeping Score", "Spawns a Double Points Power-Up. Activates manual."));
-            gobblegums.Add(GobbleType.CacheBack, new GobbleInfo("Cache Back", "Spawns a Max Ammo Power-Up. Activates manual."));
-            gobblegums.Add(GobbleType.KillJoy, new GobbleInfo("Kill Joy", "Spawns a Insta-Kill Power-Up. Activates manual."));
-            gobblegums.Add(GobbleType.WalkingDeath, new GobbleInfo("Walking Death", "Slow down all zombies move speed. Activates immediately."));
-            gobblegums.Add(GobbleType.TemporalGift, new GobbleInfo("Temporal Gift", "Power-Ups last longer. Activates immediately."));
-            gobblegums.Add(GobbleType.KillingTime, new GobbleInfo("Killing Time", "For 15 second. Freeze zombies if they hit by you. If they not killed for 10 second. Then they will exploed. Activates immediately."));
-            gobblegums.Add(GobbleType.Perkaholic, new GobbleInfo("Perkaholic", "Give all survivor all Perk-a-Colas. Activates if only have 2 survivor."));
-            gobblegums.Add(GobbleType.HeadDrama, new GobbleInfo("Head Drama", "Any bullet which hits a zombie will damage its head for 1 min. Activates immediately."));
+            switch (Type)
+            {
+                case GobbleGumType.AlwaysDoneSwiftly:
+                    return player =>
+                    {
+                        player.SetPerk("specialty_autospot", true, false);
+                    };
+                case GobbleGumType.NoGamble:
+                    return player =>
+                    {
+                        player.GamblerText("You live! (Gobble Gum Protect)", new Vector3(1, 1, 1), new Vector3(0, 0, 1), 1, 0.85f);
+                    };
+                case GobbleGumType.Coagulant:
+                    return player =>
+                    {
+                        player.SetField("gobble_coagulant", 1);
+                    };
+                case GobbleGumType.InPlainSight:
+                    return player =>
+                    {
+                        player.SetField("gobble_inplainsight", 1);
+                        player.Call("hide");
+                        player.AfterDelay(10000, e =>
+                        {
+                            player.SetField("gobble_inplainsight", 0);
+                            player.Call("show");
+                        });
+                    };
+                case GobbleGumType.StockOption:
+                    return player =>
+                    {
+                        player.SetField("gobble_stockoption", 1);
+                        player.AfterDelay(60000, e =>
+                        {
+                            player.SetField("gobble_stockoption", 0);
+                        });
+                    };
+                case GobbleGumType.Wiper:
+                    return player =>
+                    {
+                        player.GamblerText("Cleaned View! (Gobble Gum Protect)", new Vector3(1, 1, 1), new Vector3(0, 0, 1), 1, 0.85f);
+                    };
+                case GobbleGumType.SwordFlay:
+                    return player =>
+                    {
+                        player.SetField("gobble_swordflay", 1);
+                        player.AfterDelay(60000, e =>
+                        {
+                            player.SetField("gobble_swordflay", 0);
+                        });
+                    };
+                case GobbleGumType.DangerClosest:
+                    return player =>
+                    {
+                        player.SetField("gobble_dangerclosest", 1);
+                        player.AfterDelay(10000, e =>
+                        {
+                            player.SetField("gobble_dangerclosest", 0);
+                        });
+                    };
+                case GobbleGumType.Antidote:
+                    return player =>
+                    {
+                        player.GamblerText("Acid Protect! (Gobble Gum Protect)", new Vector3(1, 1, 1), new Vector3(0, 0, 1), 1, 0.85f);
+                    };
+                case GobbleGumType.LuckyCrit:
+                    return player =>
+                    {
+                        player.GamblerText("Gambler Restarted!", new Vector3(1, 1, 1), new Vector3(0, 0, 1), 1, 0.85f);
+                    };
+                case GobbleGumType.Recon:
+                    return player =>
+                    {
+                        player.SetField("gobble_recon", 1);
+                        player.Call("thermalvisionon");
+                        player.AfterDelay(60000, e =>
+                        {
+                            player.SetField("gobble_recon", 0);
+                            player.Call("thermalvisionoff");
+                        });
+                    };
+                case GobbleGumType.Strongbox:
+                    return player =>
+                    {
+                        player.GamblerText("You cash and Bouns Points was protected!", new Vector3(1, 1, 1), new Vector3(0, 0, 1), 1, 0.85f);
+                    };
+                case GobbleGumType.Aftertaste:
+                    return player =>
+                    {
+                        player.SetField("gobble_aftertaste", 1);
+                    };
+                case GobbleGumType.BurnedOut:
+                    return player =>
+                    {
+                        Utility.SetDvar("global_gobble_burnedout", 1);
+                        player.AfterDelay(60000, e =>
+                        {
+                            Utility.SetDvar("global_gobble_burnedout", 0);
+                        });
+                    };
+                case GobbleGumType.DeadOfNuclearWinter:
+                    return player =>
+                    {
+                        PowerUp.Nuke(player);
+                    };
+                case GobbleGumType.IAmFeelingLucky:
+                    return player =>
+                    {
+                        var p = (PowerUpType)Utility.Random.Next(Enum.GetNames(typeof(PowerUpType)).Length);
+                        switch (p)
+                        {
+                            case PowerUpType.MaxAmmo:
+                                PowerUp.MaxAmmo(player);
+                                break;
+                            case PowerUpType.DoublePoints:
+                                PowerUp.DoublePoints(player);
+                                break;
+                            case PowerUpType.InstaKill:
+                                PowerUp.InstaKill(player);
+                                break;
+                            case PowerUpType.Nuke:
+                                PowerUp.Nuke(player);
+                                break;
+                            case PowerUpType.FireSale:
+                                PowerUp.FireSale(player);
+                                break;
+                            case PowerUpType.BonusPoints:
+                                PowerUp.BonusPoints(player);
+                                break;
+                            case PowerUpType.Carpenter:
+                                PowerUp.Carpenter(player);
+                                break;
+                        }
+                    };
+                case GobbleGumType.ImmolationLiquidation:
+                    return player =>
+                    {
+                        PowerUp.FireSale(player);
+                    };
+                case GobbleGumType.LicensedContractor:
+                    return player =>
+                    {
+                        PowerUp.Carpenter(player);
+                    };
+                case GobbleGumType.PhoenixUp:
+                    return player =>
+                    {
+                        foreach (var item in Utility.Players)
+                        {
+                            if (item.IsAlive && item.GetTeam() == "axis")
+                            {
+                                item.Suicide();
+                                item.SetTeam("allies");
+                                item.GamblerText("You has be revive to human by " + player.Name, new Vector3(1, 1, 1), new Vector3(1, 1, 0), 1, 0.85f);
+                                break;
+                            }
+                        }
+                    };
+                case GobbleGumType.PopShocks:
+                    return player =>
+                    {
+                        player.GamblerText("Pop Shocks!", new Vector3(1, 1, 1), new Vector3(0, 0, 1), 1, 0.85f);
+                    };
+                case GobbleGumType.RespinCycle:
+                    return player =>
+                    {
+                        Sharpshooter._cycleRemaining = 0;
+                    };
+                case GobbleGumType.Unquenchable:
+                    return player =>
+                    {
+                        player.SetField("gobble_unquenchable", 1);
+                    };
+                case GobbleGumType.WhosKeepingScore:
+                    return player =>
+                    {
+                        PowerUp.DoublePoints(player);
+                    };
+                case GobbleGumType.CacheBack:
+                    return player =>
+                    {
+                        PowerUp.MaxAmmo(player);
+                    };
+                case GobbleGumType.KillJoy:
+                    return player =>
+                    {
+                        PowerUp.InstaKill(player);
+                    };
+                case GobbleGumType.WalkingDeath:
+                    return player =>
+                    {
+                        foreach (var item in Utility.Players)
+                        {
+                            if (item.IsAlive && item.GetTeam() == "axis")
+                            {
+                                item.SetSpeed(0.5f);
+                            }
+                        }
+                    };
+                case GobbleGumType.TemporalGift:
+                    return player =>
+                    {
+                        Utility.SetDvar("global_gobble_temporalgift", 1);
+                    };
+                case GobbleGumType.KillingTime:
+                    return player =>
+                    {
+                        player.SetField("gobble_killingtime", 1);
+                        player.AfterDelay(15000, e =>
+                         {
+                             player.SetField("gobble_killingtime", 0);
+                         });
+                    };
+                case GobbleGumType.Perkaholic:
+                    return player =>
+                    {
+                        foreach (var item in Utility.Players)
+                        {
+                            if (item.IsAlive && item.GetTeam() == "allies")
+                            {
+                                item.GiveAllPerkCola();
+                            }
+                        }
+                    };
+                case GobbleGumType.HeadDrama:
+                    return player =>
+                    {
+                        player.SetField("gobble_headdrama", 1);
+                        player.AfterDelay(60000, e =>
+                        {
+                            player.SetField("gobble_headdrama", 0);
+                        });
+
+                    };
+                default:
+                    return player =>
+                    {
+
+                    };
+            }
+        }
+    }
+
+    public class GobbleGumFunction : BaseScript
+    {
+        public static readonly GobbleGum[] _currentGobblegum = new GobbleGum[18];
+
+        private static List<GobbleGum> _allGobblegum = new List<GobbleGum>();
+
+        public GobbleGumFunction()
+        {
+            for (int i = 0; i < Enum.GetNames(typeof(GobbleGumType)).Length; i++)
+            {
+                _allGobblegum.Add(new GobbleGum((GobbleGumType)i));
+            }
+            _allGobblegum = (from a in _allGobblegum where a.Type != GobbleGumType.None orderby a.Weight select a).ToList();
 
             PlayerConnected += player =>
             {
-                player.SetField("gobbletype", new Parameter(GobbleType.None));
+                player.SetCurrentGobbleGum(new GobbleGum(GobbleGumType.None));
+
                 player.SetField("gobble_coagulant", 0);
                 player.SetField("gobble_inplainsight", 0);
                 player.SetField("gobble_stockoption", 0);
@@ -143,57 +669,92 @@ namespace INF3
             };
         }
 
-        private static GobbleType RandomItem()
+        private static GobbleGumType RandomItem()
         {
-            KeyValuePair<int, GobbleType> pair2;
-            int maxvalue = rolls.Count;
+            int count = _allGobblegum.Count;
 
-            var list = new List<KeyValuePair<int, int>>();
-            for (int i = 0; i < rolls.Count; i++)
+            var dic = new Dictionary<KeyValuePair<int, int>, GobbleGumType>();
+            int index = 1;
+            foreach (var item in _allGobblegum)
             {
-                pair2 = rolls[i];
-                var num = pair2.Key + Utility.Rng.Next(0, maxvalue);
-                list.Add(new KeyValuePair<int, int>(i, num));
+                int start = index;
+                int end = index + item.Weight - 1;
+                index += end + 1;
+                dic.Add(new KeyValuePair<int, int>(start, end), item.Type);
             }
 
-            list.Sort((kvp1, kvp2) => (kvp2.Value - kvp1.Value));
-            var pair = rolls[list[0].Key];
+            var rng = Utility.Random.Next(1, index);
+            var tar = (
+                from r in dic
+                where rng >= r.Key.Key || rng <= r.Key.Value
+                select r.Value).ToList()[0];
 
-            return pair.Value;
+            return tar;
         }
 
-        private static void GetRandomGobbleGum(Entity player)
+        public static void GetRandomGobbleGum(Entity player)
         {
-            if (player.GetField<GobbleType>("gobbletype") != GobbleType.None)
+            if (player.GetField<GobbleGumType>("gobbletype") != GobbleGumType.None)
                 return;
 
             var type = RandomItem();
-            while (
-                (player.GetField<int>("gobble_coagulant") == 1 && type == GobbleType.Coagulant) ||
-                (player.GetField<int>("gobble_inplainsight") == 1 && type == GobbleType.InPlainSight) ||
-                (player.GetField<int>("gobble_stockoption") == 1 && type == GobbleType.StockOption) ||
-                (player.GetField<int>("gobble_swordflay") == 1 && type == GobbleType.SwordFlay) ||
-                (player.GetField<int>("gobble_dangerclosest") == 1 && type == GobbleType.DangerClosest) ||
-                (player.GetField<int>("gobble_recon") == 1 && type == GobbleType.Recon) ||
-                (player.GetField<int>("gobble_aftertaste") == 1 && type == GobbleType.Aftertaste) ||
-                (player.GetField<int>("gobble_unquenchable") == 1 && type == GobbleType.Unquenchable) ||
-                (player.GetField<int>("gobble_killingtime") == 1 && type == GobbleType.KillingTime) ||
-                (player.GetField<int>("gobble_headdrama") == 1 && type == GobbleType.KillingTime) ||
-                (Function.Call<int>("getdvarint", "global_gobble_temporalgift") == 1 && type == GobbleType.TemporalGift)
+            if (
+                (player.GetField<int>("gobble_coagulant") == 1 && type == GobbleGumType.Coagulant) ||
+                (player.GetField<int>("gobble_inplainsight") == 1 && type == GobbleGumType.InPlainSight) ||
+                (player.GetField<int>("gobble_stockoption") == 1 && type == GobbleGumType.StockOption) ||
+                (player.GetField<int>("gobble_swordflay") == 1 && type == GobbleGumType.SwordFlay) ||
+                (player.GetField<int>("gobble_dangerclosest") == 1 && type == GobbleGumType.DangerClosest) ||
+                (player.GetField<int>("gobble_recon") == 1 && type == GobbleGumType.Recon) ||
+                (player.GetField<int>("gobble_aftertaste") == 1 && type == GobbleGumType.Aftertaste) ||
+                (player.GetField<int>("gobble_unquenchable") == 1 && type == GobbleGumType.Unquenchable) ||
+                (player.GetField<int>("gobble_killingtime") == 1 && type == GobbleGumType.KillingTime) ||
+                (player.GetField<int>("gobble_headdrama") == 1 && type == GobbleGumType.KillingTime) ||
+                (Utility.GetDvar<int>("global_gobble_burnedout") == 1 && type == GobbleGumType.BurnedOut) ||
+                (Utility.GetDvar<int>("global_gobble_temporalgift") == 1 && type == GobbleGumType.TemporalGift)
                 )
             {
-                type = RandomItem();
+                GetRandomGobbleGum(player);
+                return;
             }
         }
 
-        private static void PrintGobbleGumInfo()
+        public static void GiveGobbleGum(Entity player, GobbleGum gobblegum)
         {
-
+            player.SetCurrentGobbleGum(gobblegum);
         }
 
-        public void Activation(Entity player, GobbleType type)
+        public static void ActiveGobbleGum(Entity player)
         {
+            var gobble = player.GetCurrentGobbleGum();
+            gobble.Activation(player);
 
+            player.AfterDelay(100, e => player.SetCurrentGobbleGum(new GobbleGum(GobbleGumType.None)));
+        }
+
+        private static void PrintGobbleGumInfo(Entity player, GobbleGum gobblegum)
+        {
+            string alias;
+            if (gobblegum.Weight == 10)
+            {
+                alias = "^2";
+            }
+            else if (gobblegum.Weight == 7)
+            {
+                alias = "^5";
+            }
+            else if (gobblegum.Weight == 4)
+            {
+                alias = "^6";
+            }
+            else
+            {
+                alias = "^3";
+            }
+
+            player.GobbleGumHud(gobblegum.Name, gobblegum.Info);
+            Utility.Println(player.Name + " get a Gobble Gum - " + alias + gobblegum.Name);
+
+            AIZDebug.DebugLog(typeof(GobbleGumFunction), player.Name + " get a Gobble Gum - " + alias + gobblegum.Name);
         }
     }
 }

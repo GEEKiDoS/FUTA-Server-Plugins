@@ -1,13 +1,4 @@
-﻿// -------------------------------------------------
-// Class: FUTA
-// Project: FUTA dedicated plugin
-// Author: NTAuthority
-// Modify: A2ON
-// 
-// Imitate BO2 Sharpshooter mode. need Free-for-all dsr.
-// -------------------------------------------------
-
-using System;
+﻿using System;
 using System.Linq;
 using InfinityScript;
 
